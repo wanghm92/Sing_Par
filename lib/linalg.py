@@ -246,6 +246,6 @@ if __name__ == '__main__':
   z = linear([x1, x2], 10)
   zz = bilinear(x1, x2, 10)
   with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     sess.run(z)
     sess.run(zz)
