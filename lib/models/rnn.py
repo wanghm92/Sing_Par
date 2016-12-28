@@ -529,7 +529,7 @@ def dynamic_rnn(cell, inputs, sequence_length=None, initial_state=None, ff_keep_
     def _assert_has_shape(x, shape):
       x_shape = array_ops.shape(x)
       packed_shape = array_ops.pack(shape)
-      return logging_ops.Assert(
+      return control_flow_ops.Assert(
           math_ops.reduce_all(math_ops.equal(x_shape, packed_shape)),
           ["Expected shape for Tensor %s is " % x.name,
            packed_shape, " but saw shape: ", x_shape])
@@ -600,7 +600,7 @@ def _dynamic_rnn_loop( cell, inputs, initial_state, ff_keep_prob, recur_keep_pro
 
   time = array_ops.constant(0, dtype=dtypes.int32, name="time")
 
-  with ops.op_scope([], "dynamic_rnn") as scope:
+  with ops.name_scope("dynamic_rnn", None, []) as scope:
     base_name = scope
 
   output_ta = tensor_array_ops.TensorArray(
