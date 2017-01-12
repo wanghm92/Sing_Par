@@ -5,10 +5,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging, os, sys
 import numpy as np
 import tensorflow as tf
 
 from configurable import Configurable
+
+#-------------- Logging  ----------------#
+program = os.path.basename(sys.argv[0])
+L = logging.getLogger(program)
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
+logging.root.setLevel(level=logging.INFO)
 
 #***************************************************************
 class Bucket(Configurable):
@@ -67,7 +74,7 @@ class Bucket(Configurable):
     else:
       self._data = np.zeros((0,1), dtype=np.float32)
       self._sents = np.zeros((0,1), dtype=str)
-    print('Bucket %s is %d x %d' % ((self._name,) + self._data.shape[0:2]))
+    L.info('Bucket %s is %d x %d' % ((self._name,) + self._data.shape[0:2]))
     return
   
   #=============================================================

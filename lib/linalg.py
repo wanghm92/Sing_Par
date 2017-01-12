@@ -5,8 +5,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging, os, sys
 import numpy as np
 import tensorflow as tf
+
+#-------------- Logging  ----------------#
+program = os.path.basename(sys.argv[0])
+L = logging.getLogger(program)
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
+logging.root.setLevel(level=logging.INFO)
 
 #***************************************************************
 sig_const = np.arctanh(1/3)
@@ -21,7 +28,7 @@ def sigmoid(x):
 def orthonormal_initializer(input_size, output_size):
   """"""
   
-  print(tf.get_variable_scope().name)
+  L.info(tf.get_variable_scope().name)
   I = np.eye(output_size)
   lr = .1
   eps = .05/(output_size + input_size)
@@ -38,7 +45,7 @@ def orthonormal_initializer(input_size, output_size):
         break
     if np.isfinite(loss) and not Q[0,0] > 1e6:
       success = True
-  print('Orthogonal pretrainer loss: %.2e' % loss)
+  L.info('Orthogonal pretrainer loss: %.2e' % loss)
   return Q.astype(np.float32)
 
 #===============================================================

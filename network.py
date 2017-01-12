@@ -8,6 +8,7 @@ from __future__ import print_function
 import os
 import sys
 import time
+import logging
 import pickle as pkl
 
 import numpy as np
@@ -20,6 +21,14 @@ from lib import rnn_cells
 from configurable import Configurable
 from vocab import Vocab
 from dataset import Dataset
+
+#-------------- Logging  ----------------#
+program = os.path.basename(sys.argv[0])
+L = logging.getLogger(program)
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
+logging.root.setLevel(level=logging.INFO)
+L.info("Running %s" % ' '.join(sys.argv))
+MAX_TO_KEEP=10000
 
 # TODO make the optimizer class inherit from Configurable
 # TODO bayesian hyperparameter optimization
@@ -137,7 +146,7 @@ class Network(Configurable):
             pretrain_recur_loss /= n_pretrain_iters
             pretrain_covar_loss /= n_pretrain_iters
             pretrain_ortho_loss /= n_pretrain_iters
-            print('%6d) Pretrain loss: %.2e (%.2e + %.2e + %.2e)    Pretrain rate: %6.1f sents/sec' % (total_pretrain_iters, pretrain_loss, recur_loss, covar_loss, ortho_loss, pretrain_time))
+            L.info('%6d) Pretrain loss: %.2e (%.2e + %.2e + %.2e)    Pretrain rate: %6.1f sents/sec' % (total_pretrain_iters, pretrain_loss, recur_loss, covar_loss, ortho_loss, pretrain_time))
             pretrain_time = 0
             pretrain_loss = 0
             pretrain_recur_loss = 0
@@ -146,12 +155,12 @@ class Network(Configurable):
             n_pretrain_sents = 0
             n_pretrain_iters = 0
     except KeyboardInterrupt:
-      try:
-        raw_input('\nPress <Enter> to save or <Ctrl-C> to exit')
-      except:
-        print('\r', end='')
-        sys.exit(0)
-    saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-pretrained'), latest_filename=self.name.lower()+'-checkpoint')
+      # try:
+      #   raw_input('\nPress <Enter> to save or <Ctrl-C> to exit')
+      # except:
+      #   L.info('\r', end='')
+      #   sys.exit(0)
+      saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-pretrained'), latest_filename=self.name.lower()+'-checkpoint')
     return
   
   #=============================================================
@@ -160,7 +169,7 @@ class Network(Configurable):
     """"""
     
     save_path = os.path.join(self.save_dir, self.name.lower() + '-pretrained')
-    saver = tf.train.Saver(name=self.name, max_to_keep=1)
+    saver = tf.train.Saver(name=self.name, max_to_keep=MAX_TO_KEEP)
     
     n_bkts = self.n_bkts
     train_iters = self.train_iters
@@ -180,6 +189,17 @@ class Network(Configurable):
       valid_accuracy = 0
       while total_train_iters < train_iters:
         for j, (feed_dict, _) in enumerate(self.train_minibatches()):
+          if print_every and total_train_iters % print_every == 0 and total_train_iters > 0:
+            train_loss /= n_train_iters
+            train_accuracy = 100 * n_train_correct / n_train_tokens
+            train_time = n_train_sents / train_time
+            L.info('Number of mini-batches trained: === %d ===\n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (total_train_iters, train_loss, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
+            train_time = 0
+            train_loss = 0
+            n_train_sents = 0
+            n_train_correct = 0
+            n_train_tokens = 0
+            n_train_iters = 0
           train_inputs = feed_dict[self._trainset.inputs]
           train_targets = feed_dict[self._trainset.targets]
           start_time = time.time()
@@ -216,52 +236,56 @@ class Network(Configurable):
             valid_time = n_valid_sents / valid_time
             self.history['valid_loss'].append(valid_loss)
             self.history['valid_accuracy'].append(valid_accuracy)
-          if print_every and total_train_iters % print_every == 0:
-            train_loss /= n_train_iters
-            train_accuracy = 100 * n_train_correct / n_train_tokens
-            train_time = n_train_sents / train_time
-            print('%6d) Train loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (total_train_iters, train_loss, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
-            train_time = 0
-            train_loss = 0
-            n_train_sents = 0
-            n_train_correct = 0
-            n_train_tokens = 0
-            n_train_iters = 0
         sess.run(self._global_epoch.assign_add(1.))
-        if save_every and (total_train_iters % save_every == 0):
-          saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
-          with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
-            pkl.dump(self.history, f)
-          self.test(sess, validate=True)
+        train_loss_epoch = train_loss/n_train_iters
+        train_accuracy = 100 * n_train_correct / n_train_tokens
+        train_time = n_train_sents / train_time
+        epoch_finished = sess.run(self._global_epoch)
+        L.info('=== Finshed %d Epochs === \n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (epoch_finished, train_loss_epoch, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
+
+        # if save_every and (total_train_iters % save_every == 0):
+        L.info('Saving model after === %d === epochs to --> %s' % (epoch_finished, os.path.join(self.save_dir, self.name.lower() + '-trained-' + str(epoch_finished))))
+        saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
+        with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
+          pkl.dump(self.history, f)
+        self.test(sess, validate=True,test_epoch=epoch_finished)
+        self.test(sess, validate=False,test_epoch=epoch_finished)
+
     except KeyboardInterrupt:
-      try:
-        raw_input('\nPress <Enter> to save or <Ctrl-C> to exit.')
-      except:
-        print('\r', end='')
-        sys.exit(0)
-    saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
+      # try:
+      #   raw_input('\nPress <Enter> to save or <Ctrl-C> to exit.')
+      # except:
+      #   L.info('\r', end='')
+      #   sys.exit(0)
+      saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
+
     with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
       pkl.dump(self.history, f)
-    with open(os.path.join(self.save_dir, 'scores.txt'), 'w') as f:
-      pass
-    self.test(sess, validate=True)
+    # with open(os.path.join(self.save_dir, 'scores.txt'), 'w') as f:
+      # pass
+
+    self.test(sess, validate=True, test_epoch=epoch_finished)
+    self.test(sess, validate=False,test_epoch=epoch_finished)
+
     return
     
   #=============================================================
   # TODO make this work if lines_per_buff isn't set to 0
-  def test(self, sess, validate=False):
+  def test(self, sess, validate=False, test_epoch=0):
     """"""
     
     if validate:
-      filename = self.valid_file
+      filename = self.valid_file +'-epoch%d'%test_epoch
       minibatches = self.valid_minibatches
       dataset = self._validset
       op = self.ops['test_op'][0]
+      score_file = 'scores_validate.txt'
     else:
-      filename = self.test_file
+      filename = self.test_file +'-epoch%d'%test_epoch
       minibatches = self.test_minibatches
       dataset = self._testset
       op = self.ops['test_op'][1]
+      score_file = 'scores_test.txt'
     
     all_predictions = [[]]
     all_sents = [[]]
@@ -295,9 +319,9 @@ class Network(Configurable):
           )
           f.write('%s\t%s\t_\t%s\t%s\t_\t%s\t%s\t%s\t%s\n' % tup)
         f.write('\n')
-    with open(os.path.join(self.save_dir, 'scores.txt'), 'a') as f:
+    with open(os.path.join(self.save_dir, score_file), 'a+') as f:
       s, _ = self.model.evaluate(os.path.join(self.save_dir, os.path.basename(filename)), punct=self.model.PUNCT)
-      f.write(s)
+      f.write('Epoch%4d : '%test_epoch + s)
     return
   
   #=============================================================
@@ -382,7 +406,7 @@ if __name__ == '__main__':
   args, extra_args = argparser.parse_known_args()
   cargs = {k: v for (k, v) in vars(Configurable.argparser.parse_args(extra_args)).iteritems() if v is not None}
   
-  print('*** '+args.model+' ***')
+  L.info('*** '+args.model+' ***')
   model = getattr(models, args.model)
   
   if 'save_dir' in cargs and os.path.isdir(cargs['save_dir']) and not (args.test or args.load):
@@ -392,13 +416,14 @@ if __name__ == '__main__':
   network = Network(model, **cargs)
   config_proto = tf.ConfigProto()
   config_proto.gpu_options.per_process_gpu_memory_fraction = network.per_process_gpu_memory_fraction
+  config_proto.gpu_options.allow_growth = True
   with tf.Session(config=config_proto) as sess:
     sess.run(tf.global_variables_initializer())
     if args.pretrain:
       network.pretrain(sess)
     if not args.test:
       if args.load:
-        os.system('echo Training: > %s/HEAD' % network.save_dir)
+        os.system('echo Loading: > %s/HEAD' % network.save_dir)
         os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
         saver = tf.train.Saver(name=network.name)
         saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
@@ -406,12 +431,15 @@ if __name__ == '__main__':
           with open(os.path.join(network.save_dir, 'history.pkl')) as f:
             network.history = pkl.load(f)
       else:
-        os.system('echo Loading: >> %s/HEAD' % network.save_dir)
+        os.system('echo Training: >> %s/HEAD' % network.save_dir)
         os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
       network.train(sess)
     else:
       os.system('echo Testing: >> %s/HEAD' % network.save_dir)
       os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
       saver = tf.train.Saver(name=network.name)
+      # print(sess.run(tf.train.Saver.last_checkpoints))
       saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
+      # saver.restore(sess, os.path.join(network.save_dir, 'parser-trained-3'))
+      # network.test(sess, validate=False,test_epoch=3)
       network.test(sess, validate=False)
