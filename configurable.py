@@ -103,6 +103,10 @@ class Configurable(object):
   #=============================================================
   # [Dataset]
   @property
+  def load_emb(self):
+    return self._config.getboolean('Dataset', 'load_emb')
+  argparser.add_argument('--load_emb')
+  @property
   def cased(self):
     return self._config.getboolean('Dataset', 'cased')
   argparser.add_argument('--cased')

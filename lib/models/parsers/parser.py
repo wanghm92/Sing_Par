@@ -29,8 +29,12 @@ class Parser(BaseParser):
     self.n_tokens = tf.reduce_sum(self.sequence_lengths)
     self.moving_params = moving_params
     
-    word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], inputs[:,:,1], moving_params=self.moving_params)
-    tag_inputs  = vocabs[1].embedding_lookup(inputs[:,:,2], moving_params=self.moving_params)
+    if self.load_emb:
+      word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], inputs[:,:,1], moving_params=self.moving_params)
+      tag_inputs  = vocabs[1].embedding_lookup(inputs[:,:,2], moving_params=self.moving_params)
+    else:
+      word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], moving_params=self.moving_params)
+      tag_inputs  = vocabs[1].embedding_lookup(inputs[:,:,1], moving_params=self.moving_params)
     
     top_recur = self.embed_concat(word_inputs, tag_inputs)
     for i in xrange(self.n_recur):

@@ -64,7 +64,7 @@ class Network(Configurable):
       vocab = Vocab(vocab_file, index, self._config,
                     name=name,
                     cased=self.cased if not i else True,
-                    load_embed_file=(not i),
+                    load_embed_file=(not i) and self.load_emb,
                     global_step=self.global_step)
       self._vocabs.append(vocab)
     
@@ -176,7 +176,9 @@ class Network(Configurable):
     print_every = self.print_every
     validate_every = self.validate_every
     save_every = self.save_every
+
     try:
+
       train_time = 0
       train_loss = 0
       n_train_sents = 0
@@ -187,9 +189,12 @@ class Network(Configurable):
       valid_time = 0
       valid_loss = 0
       valid_accuracy = 0
+
       while total_train_iters < train_iters:
+
         for j, (feed_dict, _) in enumerate(self.train_minibatches()):
           if print_every and total_train_iters % print_every == 0 and total_train_iters > 0:
+
             train_loss /= n_train_iters
             train_accuracy = 100 * n_train_correct / n_train_tokens
             train_time = n_train_sents / train_time
@@ -203,7 +208,9 @@ class Network(Configurable):
           train_inputs = feed_dict[self._trainset.inputs]
           train_targets = feed_dict[self._trainset.targets]
           start_time = time.time()
+
           _, loss, n_correct, n_tokens = sess.run(self.ops['train_op'], feed_dict=feed_dict)
+
           train_time += time.time() - start_time
           train_loss += loss
           n_train_sents += len(train_targets)
@@ -213,12 +220,14 @@ class Network(Configurable):
           total_train_iters += 1
           self.history['train_loss'].append(loss)
           self.history['train_accuracy'].append(100 * n_correct / n_tokens)
+
           if total_train_iters == 1 or total_train_iters % validate_every == 0:
             valid_time = 0
             valid_loss = 0
             n_valid_sents = 0
             n_valid_correct = 0
             n_valid_tokens = 0
+
             with open(os.path.join(self.save_dir, 'sanitycheck.txt'), 'w') as f:
               for k, (feed_dict, _) in enumerate(self.valid_minibatches()):
                 inputs = feed_dict[self._validset.inputs]
@@ -231,11 +240,13 @@ class Network(Configurable):
                 n_valid_correct += n_correct
                 n_valid_tokens += n_tokens
                 self.model.sanity_check(inputs, targets, predictions, self._vocabs, f)
+
             valid_loss /= k+1
             valid_accuracy = 100 * n_valid_correct / n_valid_tokens
             valid_time = n_valid_sents / valid_time
             self.history['valid_loss'].append(valid_loss)
             self.history['valid_accuracy'].append(valid_accuracy)
+
         sess.run(self._global_epoch.assign_add(1.))
         train_loss_epoch = train_loss/n_train_iters
         train_accuracy = 100 * n_train_correct / n_train_tokens
@@ -246,6 +257,7 @@ class Network(Configurable):
         # if save_every and (total_train_iters % save_every == 0):
         L.info('Saving model after === %d === epochs to --> %s' % (epoch_finished, os.path.join(self.save_dir, self.name.lower() + '-trained-' + str(epoch_finished))))
         saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
+        
         with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
           pkl.dump(self.history, f)
         self.test(sess, validate=True,test_epoch=epoch_finished)
@@ -307,16 +319,28 @@ class Network(Configurable):
         preds = all_predictions[bkt_idx][idx]
         words = all_sents[bkt_idx][idx]
         for i, (datum, word, pred) in enumerate(zip(data, words, preds)):
-          tup = (
-            i+1,
-            word,
-            self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
-            self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
-            str(pred[5]) if pred[5] != -1 else str(datum[4]),
-            self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
-            str(pred[7]) if pred[7] != -1 else '_',
-            self.rels[pred[8]] if pred[8] != -1 else '_',
-          )
+          if self.load_emb:
+            tup = (
+              i+1,
+              word,
+              self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
+              self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
+              str(pred[5]) if pred[5] != -1 else str(datum[4]),
+              self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
+              str(pred[7]) if pred[7] != -1 else '_',
+              self.rels[pred[8]] if pred[8] != -1 else '_',
+            )
+          else:
+            tup = (
+              i+1,
+              word,
+              self.tags[pred[2]] if pred[2] != -1 else self.tags[datum[1]],
+              self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
+              str(pred[4]) if pred[4] != -1 else str(datum[3]),
+              self.rels[pred[5]] if pred[5] != -1 else self.rels[datum[4]],
+              str(pred[6]) if pred[6] != -1 else '_',
+              self.rels[pred[7]] if pred[7] != -1 else '_',
+            )
           f.write('%s\t%s\t_\t%s\t%s\t_\t%s\t%s\t%s\t%s\n' % tup)
         f.write('\n')
     with open(os.path.join(self.save_dir, score_file), 'a+') as f:
@@ -403,9 +427,10 @@ if __name__ == '__main__':
   argparser.add_argument('--test', action='store_true')
   argparser.add_argument('--load', action='store_true')
   argparser.add_argument('--model', default='Parser')
+  argparser.add_argument('--load_epoch', default=0, help="Epoch for test/load, ignore if use lastest checkpoint")
   args, extra_args = argparser.parse_known_args()
   cargs = {k: v for (k, v) in vars(Configurable.argparser.parse_args(extra_args)).iteritems() if v is not None}
-  
+
   L.info('*** '+args.model+' ***')
   model = getattr(models, args.model)
   
@@ -419,14 +444,22 @@ if __name__ == '__main__':
   config_proto.gpu_options.allow_growth = True
   with tf.Session(config=config_proto) as sess:
     sess.run(tf.global_variables_initializer())
+
+    if args.load_epoch == 0:
+      pre_trained_model = tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower())
+    else:
+      pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-trained-' + str(args.load_epoch))
+
     if args.pretrain:
       network.pretrain(sess)
     if not args.test:
       if args.load:
         os.system('echo Loading: > %s/HEAD' % network.save_dir)
         os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
-        saver = tf.train.Saver(name=network.name)
-        saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
+        save_vars = filter(lambda x: u'MLP' not in x.name, tf.all_variables())
+        saver = tf.train.Saver(name=network.name, var_list=save_vars)
+        saver.restore(sess, pre_trained_model)
+        # saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
         if os.path.isfile(os.path.join(network.save_dir, 'history.pkl')):
           with open(os.path.join(network.save_dir, 'history.pkl')) as f:
             network.history = pkl.load(f)
@@ -439,7 +472,7 @@ if __name__ == '__main__':
       os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
       saver = tf.train.Saver(name=network.name)
       # print(sess.run(tf.train.Saver.last_checkpoints))
-      saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
-      # saver.restore(sess, os.path.join(network.save_dir, 'parser-trained-3'))
-      # network.test(sess, validate=False,test_epoch=3)
-      network.test(sess, validate=False)
+      # saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
+      saver.restore(sess, pre_trained_model)
+      network.test(sess, validate=False,test_epoch=args.load_epoch)
+      # network.test(sess, validate=False)
