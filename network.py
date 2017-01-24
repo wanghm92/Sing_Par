@@ -52,10 +52,21 @@ class Network(Configurable):
     with open(os.path.join(self.save_dir, 'config.cfg'), 'w') as f:
       self._config.write(f)
       
+    print(args)
+
     self._global_step = tf.Variable(0., trainable=False)
     self._global_epoch = tf.Variable(0., trainable=False)
     self._model = model(self._config, global_step=self.global_step)
     
+    L.info("Load emb = %s"%self.load_emb)
+    L.info("Stacking = %s"%self.stack)
+    if self.stack:
+      L.info("Stack emb File = %s"%self.embed_file_stack)
+      L.info("Stack emb Size = %s"%self.stack_embed_size)
+      L.info("Stack LSTM Size = %s"%self.stack_recur_size)
+      L.info("Stack LSTM Layer = %s"%self.stack_n_recur)
+      L.info("Stack MLP Size = %s"%self.stack_mlp_size)
+
     self._vocabs = []
     vocab_files = [(self.word_file, 1, 'Words'),
                    (self.tag_file, [3, 4], 'Tags'),
@@ -320,16 +331,28 @@ class Network(Configurable):
         words = all_sents[bkt_idx][idx]
         for i, (datum, word, pred) in enumerate(zip(data, words, preds)):
           if self.load_emb:
-            tup = (
-              i+1,
-              word,
-              self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
-              self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
-              str(pred[5]) if pred[5] != -1 else str(datum[4]),
-              self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
-              str(pred[7]) if pred[7] != -1 else '_',
-              self.rels[pred[8]] if pred[8] != -1 else '_',
-            )
+            if self.stack:
+              tup = (
+                i+1,
+                word,
+                self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
+                self.tags[pred[5]] if pred[5] != -1 else self.tags[datum[4]],
+                str(pred[6]) if pred[6] != -1 else str(datum[5]),
+                self.rels[pred[7]] if pred[7] != -1 else self.rels[datum[6]],
+                str(pred[8]) if pred[8] != -1 else '_',
+                self.rels[pred[9]] if pred[9] != -1 else '_',
+              )
+            else:
+              tup = (
+                i+1,
+                word,
+                self.tags[pred[3]] if pred[3] != -1 else self.tags[datum[2]],
+                self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
+                str(pred[5]) if pred[5] != -1 else str(datum[4]),
+                self.rels[pred[6]] if pred[6] != -1 else self.rels[datum[5]],
+                str(pred[7]) if pred[7] != -1 else '_',
+                self.rels[pred[8]] if pred[8] != -1 else '_',
+              )
           else:
             tup = (
               i+1,
@@ -390,7 +413,7 @@ class Network(Configurable):
     ops['test_op'] = [valid_output['probabilities'],
                       test_output['probabilities']]
     ops['optimizer'] = optimizer
-    
+
     return ops
     
   #=============================================================
@@ -431,6 +454,7 @@ if __name__ == '__main__':
   args, extra_args = argparser.parse_known_args()
   cargs = {k: v for (k, v) in vars(Configurable.argparser.parse_args(extra_args)).iteritems() if v is not None}
 
+  print(cargs)
   L.info('*** '+args.model+' ***')
   model = getattr(models, args.model)
   
@@ -448,7 +472,7 @@ if __name__ == '__main__':
     if args.load_epoch == 0:
       pre_trained_model = tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower())
     else:
-      pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-trained-' + str(args.load_epoch))
+      pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-pretrained-' + str(args.load_epoch))
 
     if args.pretrain:
       network.pretrain(sess)
@@ -456,10 +480,13 @@ if __name__ == '__main__':
       if args.load:
         os.system('echo Loading: > %s/HEAD' % network.save_dir)
         os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
-        save_vars = filter(lambda x: u'MLP' not in x.name, tf.all_variables())
+        L.info('Loading bottom LSTM from model : %s'%pre_trained_model)
+        save_vars = filter(lambda x: u'RNN4' not in x.name and u'RNN5' not in x.name and u'Trainable_stack' not in x.name and u'Pretrained_stack' not in x.name and u'MLP_stack' not in x.name, tf.all_variables())
+        # new_saver = tf.train.import_meta_graph(os.path.abspath(pre_trained_model+'.meta'))
+        # saver = tf.train.Saver(name=network.name)
         saver = tf.train.Saver(name=network.name, var_list=save_vars)
         saver.restore(sess, pre_trained_model)
-        # saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
+        L.info('Loaded bottom LSTM from model : %s'%pre_trained_model)
         if os.path.isfile(os.path.join(network.save_dir, 'history.pkl')):
           with open(os.path.join(network.save_dir, 'history.pkl')) as f:
             network.history = pkl.load(f)

@@ -83,6 +83,14 @@ class Configurable(object):
   def embed_file(self):
     return self._config.get('OS', 'embed_file')
   argparser.add_argument('--embed_file')
+  # @property
+  # def embed_file_extra(self):
+  #   return self._config.get('OS', 'embed_file_extra')
+  # argparser.add_argument('--embed_file_extra')
+  @property
+  def embed_file_stack(self):
+    return self._config.get('OS', 'embed_file_stack')
+  argparser.add_argument('--embed_file_stack')
   @property
   def train_file(self):
     return self._config.get('OS', 'train_file')
@@ -106,6 +114,18 @@ class Configurable(object):
   def load_emb(self):
     return self._config.getboolean('Dataset', 'load_emb')
   argparser.add_argument('--load_emb')
+  # @property
+  # def extra_emb(self):
+  #   return self._config.getboolean('Dataset', 'extra_emb')
+  # argparser.add_argument('--extra_emb')
+  @property
+  def use_unk(self):
+    return self._config.getboolean('Dataset', 'use_unk')
+  argparser.add_argument('--use_unk')
+  @property
+  def stack(self):
+    return self._config.getboolean('Dataset', 'stack')
+  argparser.add_argument('--stack')
   @property
   def cased(self):
     return self._config.getboolean('Dataset', 'cased')
@@ -114,6 +134,10 @@ class Configurable(object):
   def min_occur_count(self):
     return self._config.getint('Dataset', 'min_occur_count')
   argparser.add_argument('--min_occur_count')
+  @property
+  def min_occur_count_stack(self):
+    return self._config.getint('Dataset', 'min_occur_count_stack')
+  argparser.add_argument('--min_occur_count_stack')
   @property
   def minimize_pads(self):
     return self._config.getboolean('Dataset', 'minimize_pads')
@@ -138,9 +162,17 @@ class Configurable(object):
     return self._config.getint('Layers', 'n_recur')
   argparser.add_argument('--n_recur')
   @property
+  def stack_n_recur(self):
+    return self._config.getint('Layers', 'stack_n_recur')
+  argparser.add_argument('--stack_n_recur')
+  @property
   def n_mlp(self):
     return self._config.getint('Layers', 'n_mlp')
   argparser.add_argument('--n_mlp')
+  @property
+  def stack_n_mlp(self):
+    return self._config.getint('Layers', 'stack_n_mlp')
+  argparser.add_argument('--stack_n_mlp')
   @property
   def recur_cell(self):
     from lib import rnn_cells
@@ -165,6 +197,10 @@ class Configurable(object):
   def embed_size(self):
     return self._config.getint('Sizes', 'embed_size')
   argparser.add_argument('--embed_size')
+  # @property
+  # def embed_size_extra(self):
+  #   return self._config.getint('Sizes', 'embed_size_extra')
+  # argparser.add_argument('--embed_size_extra')
   @property
   def recur_size(self):
     return self._config.getint('Sizes', 'recur_size')
@@ -173,6 +209,18 @@ class Configurable(object):
   def mlp_size(self):
     return self._config.getint('Sizes', 'mlp_size')
   argparser.add_argument('--mlp_size')
+  @property
+  def stack_embed_size(self):
+    return self._config.getint('Sizes', 'stack_embed_size')
+  argparser.add_argument('--stack_embed_size')
+  @property
+  def stack_recur_size(self):
+    return self._config.getint('Sizes', 'stack_recur_size')
+  argparser.add_argument('--stack_recur_size')
+  @property
+  def stack_mlp_size(self):
+    return self._config.getint('Sizes', 'stack_mlp_size')
+  argparser.add_argument('--stack_mlp_size')
   
   #=============================================================
   # [Functions]

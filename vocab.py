@@ -5,7 +5,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
+import os, sys, logging
 from collections import Counter
 
 import numpy as np
@@ -14,14 +14,22 @@ import tensorflow as tf
 from configurable import Configurable
 from lib.linalg import tanh_const
 
+#-------------- Logging  ----------------#
+program = os.path.basename(sys.argv[0])
+L = logging.getLogger(program)
+logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
+logging.root.setLevel(level=logging.INFO)
+L.info("Running %s" % ' '.join(sys.argv))
+
 # TODO MetaVocab?
 #***************************************************************
 class Vocab(Configurable):
   """"""
   
-  SPECIAL_TOKENS = ('<PAD>', '<ROOT>', '<UNK>')
+  SPECIAL_TOKENS = ('<PAD>', '<ROOT>', '<unk>')
   START_IDX = len(SPECIAL_TOKENS)
   PAD, ROOT, UNK = range(START_IDX)
+  UNK_TOP_PRET = UNK
   
   #=============================================================
   def __init__(self, vocab_file, conll_idx, *args, **kwargs):
@@ -46,8 +54,12 @@ class Vocab(Configurable):
     self._idx2str = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
     self._str2embed = {}
     self._embed2str = {}
+    self._str2embed_stack = {} # self._str2embed_extra = {}
+    self._embed2str_stack = {} # self._embed2str_extra = {}
     self.trainable_embeddings = None
+    self.trainable_embeddings_stack = None
     self.pretrained_embeddings = None
+    self.pretrained_embeddings_stack = None # self.pretrained_embeddings_extra = None
     if os.path.isfile(self.vocab_file):
       self.load_vocab_file()
     else:
@@ -55,6 +67,10 @@ class Vocab(Configurable):
       self.save_vocab_file()
     if load_embed_file:
       self.load_embed_file()
+      if self.stack:
+        self.load_stack_embed_file()
+      # if self.extra_emb and not self.stack:
+      #   self.load_extra_embed_file()
     self._finalize()
     
     if global_step is not None:
@@ -132,13 +148,63 @@ class Vocab(Configurable):
             raise ValueError('The training file is misformatted at line %d' % (line_num+1))
     self.index_vocab()
     return
-  
+
+  # #=============================================================
+  # def load_extra_embed_file(self):
+  #   """"""
+    
+  #   self._str2embed_extra = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
+  #   self._embed2str_extra = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
+  #   embeds = []
+  #   with open(self.embed_file_extra) as f:
+  #     cur_idx = Vocab.START_IDX
+  #     for line_num, line in enumerate(f):
+  #       line = line.strip().split()
+  #       if line:
+  #         try:
+  #           self._str2embed_extra[line[0]] = cur_idx
+  #           self._embed2str_extra[cur_idx] = line[0]
+  #           embeds.append(line[1:])
+  #           cur_idx += 1
+  #         except:
+  #           raise ValueError('The embedding file is misformatted at line %d' % (line_num+1))
+  #   self.pretrained_embeddings_extra = np.array(embeds, dtype=np.float32)
+  #   del embeds
+  #   return
+ 
+  #=============================================================
+  def load_stack_embed_file(self):
+    """"""
+    
+    self._str2embed_stack = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
+    self._embed2str_stack = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
+    L.info('Embedding file for top LSTM : %s'%self.embed_file_stack)
+    embeds = []
+    with open(self.embed_file_stack) as f:
+      cur_idx = Vocab.START_IDX
+      for line_num, line in enumerate(f):
+        line = line.strip().split()
+        if line:
+          try:
+            self._str2embed_stack[line[0]] = cur_idx
+            if line[0] == "<unk>" and self.use_unk:
+              self.UNK_TOP_PRET = cur_idx # point to <unk> vector
+            self._embed2str_stack[cur_idx] = line[0]
+            embeds.append(line[1:])
+            cur_idx += 1
+          except:
+            raise ValueError('The embedding file is misformatted at line %d' % (line_num+1))
+    self.pretrained_embeddings_stack = np.array(embeds, dtype=np.float32)
+    del embeds
+    return
+
   #=============================================================
   def load_embed_file(self):
     """"""
     
     self._str2embed = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
     self._embed2str = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
+    L.info('Embedding file for bottom LSTM : %s'%self.embed_file)
     embeds = []
     with open(self.embed_file) as f:
       cur_idx = Vocab.START_IDX
@@ -198,10 +264,14 @@ class Vocab(Configurable):
     return
   
   #=============================================================
-  def get_embed(self, key):
+  def get_embed(self, key, is_stack=False):
     """"""
-    
-    return self._embed2str[key]
+    if is_stack:
+      return self._embed2str_stack[key]
+    # elif is_extra:
+    #   return self._embed2str_extra[key]
+    else:
+      return self._embed2str[key]
   
   #=============================================================
   def _finalize(self):
@@ -213,33 +283,60 @@ class Vocab(Configurable):
       initializer = tf.zeros_initializer
       self.pretrained_embeddings = np.pad(self.pretrained_embeddings, ((self.START_IDX, 0), (0, max(0, self.embed_size - self.pretrained_embeddings.shape[1]))), 'constant')
       self.pretrained_embeddings = self.pretrained_embeddings[:,:self.embed_size]
+
+      if self.stack:
+        self.pretrained_embeddings_stack = np.pad(self.pretrained_embeddings_stack, ((self.START_IDX, 0), (0, max(0, self.stack_embed_size - self.pretrained_embeddings_stack.shape[1]))), 'constant')
+        self.pretrained_embeddings_stack = self.pretrained_embeddings_stack[:,:self.stack_embed_size]      
+
+      # if self.extra_emb:
+      #   self.pretrained_embeddings_extra = np.pad(self.pretrained_embeddings_extra, ((self.START_IDX, 0), (0, max(0, self.embed_size_extra - self.pretrained_embeddings_extra.shape[1]))), 'constant')
+      #   self.pretrained_embeddings_extra = self.pretrained_embeddings_extra[:,:self.embed_size_extra]
     
     with tf.device('/cpu:0'):
       with tf.variable_scope(self.name):
         self.trainable_embeddings = tanh_const * tf.get_variable('Trainable', shape=(len(self._str2idx), self.embed_size), initializer=initializer)
+        if self.stack:
+          self.trainable_embeddings_stack = tanh_const * tf.get_variable('Trainable_stack', shape=(len(self._str2idx), self.embed_size), initializer=initializer)
+
         if self.pretrained_embeddings is not None:
           self.pretrained_embeddings /= np.std(self.pretrained_embeddings)
           self.pretrained_embeddings = tf.Variable(self.pretrained_embeddings, trainable=False, name='Pretrained')
+          # if self.extra_emb:
+          #   self.pretrained_embeddings_extra /= np.std(self.pretrained_embeddings_extra)
+          #   self.pretrained_embeddings_extra = tf.Variable(self.pretrained_embeddings_extra, trainable=False, name='Pretrained_extra')
+          if self.stack:
+            self.pretrained_embeddings_stack /= np.std(self.pretrained_embeddings_stack)
+            self.pretrained_embeddings_stack = tf.Variable(self.pretrained_embeddings_stack, trainable=False, name='Pretrained_stack')
     return
   
   #=============================================================
-  def embedding_lookup(self, inputs, pret_inputs=None, keep_prob=1, moving_params=None):
+  def embedding_lookup(self, inputs, pret_inputs=None, pret_inputs_stack=None, keep_prob=1, moving_params=None, top=False):
     """"""
     
     if moving_params is not None:
       trainable_embeddings = moving_params.average(self.trainable_embeddings)
+      if self.stack:
+        trainable_embeddings_stack = moving_params.average(self.trainable_embeddings_stack)
       keep_prob = 1
     else:
       if self.drop_gradually:
         s = self.global_sigmoid
         keep_prob = s + (1-s)*keep_prob
       trainable_embeddings = self.trainable_embeddings
-      
-    embed_input = tf.nn.embedding_lookup(trainable_embeddings, inputs)
+      if self.stack:
+        trainable_embeddings_stack = self.trainable_embeddings_stack
+    
+    if top:
+      embed_input = tf.nn.embedding_lookup(trainable_embeddings_stack, inputs)
+    else:
+      embed_input = tf.nn.embedding_lookup(trainable_embeddings, inputs)
+
     if moving_params is None:
       tf.add_to_collection('Weights', embed_input)
     if self.pretrained_embeddings is not None and pret_inputs is not None:
       embed_input += tf.nn.embedding_lookup(self.pretrained_embeddings, pret_inputs)
+    elif self.pretrained_embeddings_stack is not None and pret_inputs_stack is not None:
+      embed_input += tf.nn.embedding_lookup(self.pretrained_embeddings_stack, pret_inputs_stack)
       
     if isinstance(keep_prob, tf.Tensor) or keep_prob < 1:
       noise_shape = tf.pack([tf.shape(embed_input)[0], tf.shape(embed_input)[1], 1])
@@ -296,7 +393,10 @@ class Vocab(Configurable):
       if not self.cased:
         key = key.lower()
       if self._str2embed:
-        return (self._str2idx.get(key, Vocab.UNK), self._str2embed.get(key.lower(), Vocab.UNK))
+        if self._str2embed_stack:
+          return (self._str2idx.get(key, Vocab.UNK), self._str2embed.get(key.lower(), Vocab.UNK), self._str2embed_stack.get(key.lower(), Vocab.UNK_TOP_PRET)) # top pret_emb may have <unk>
+        else:
+          return (self._str2idx.get(key, Vocab.UNK), self._str2embed.get(key.lower(), Vocab.UNK))
       else:
         return (self._str2idx.get(key, Vocab.UNK),)
     elif isinstance(key, (int, long, np.int32, np.int64)):
