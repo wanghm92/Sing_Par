@@ -5,6 +5,8 @@ The following contents are the original Readme for the reporsitory https://githu
 
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
+# Parser
+
 ## Where are the files you care about?
 * `lib/linalg.py`: This file contains general-purpose functions that don't require any knowledge of hyperparameters. For example, the `linear` and `bilinear` functions, which simply return the result of applying an affine or biaffine transformation to the input.
 * `configurable.py`: This file contains the Configurable class, which wraps a `SafeConfigParser` that stores model hyperparameter options (such as dropout keep probability and recurrent size). Most or all classes in this repository inherit from it.
