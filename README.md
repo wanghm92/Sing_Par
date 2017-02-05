@@ -1,4 +1,8 @@
-# Parser
+# Singlish Parser
+This repository contains the modified code used to train the Singlish dependency parser. The Singlish dependency treebank is in the folder data/Singlish, and the model presented in the paper is in the folder models/singlish_parser.
+
+The following contents are the original Readme for the reporsitory https://github.com/tdozat/Parser:
+
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
 ## Where are the files you care about?
