@@ -3,9 +3,10 @@ This repository contains the modified code used to train the Singlish dependency
 
 The following contents are the original Readme for the reporsitory https://github.com/tdozat/Parser:
 
-This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
 # Parser
+
+This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
 ## Where are the files you care about?
 * `lib/linalg.py`: This file contains general-purpose functions that don't require any knowledge of hyperparameters. For example, the `linear` and `bilinear` functions, which simply return the result of applying an affine or biaffine transformation to the input.
