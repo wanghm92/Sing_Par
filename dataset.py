@@ -92,7 +92,7 @@ class Dataset(Configurable):
         # if self.extra_emb:
           # sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
         if self.stack:
-          sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT)) # str2idx, str2emb(bottom pret_emb), str2emb_stack(top pret_emb), str2idx(tag1), str2idx(tag2), int head, str2idx(rel)
+          sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT)) # str2idx, str2idx_stack, str2emb(bottom pret_emb), str2emb_stack(top pret_emb), str2idx(tag1), str2idx(tag2), int head, str2idx(rel)
         else:
           sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
       else:

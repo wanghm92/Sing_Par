@@ -19,7 +19,6 @@ program = os.path.basename(sys.argv[0])
 L = logging.getLogger(program)
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
 logging.root.setLevel(level=logging.INFO)
-L.info("Running %s" % ' '.join(sys.argv))
 
 # TODO MetaVocab?
 #***************************************************************
@@ -49,19 +48,28 @@ class Vocab(Configurable):
       self.SPECIAL_TOKENS = ('PAD', 'ROOT', 'UNK')
     elif self.name == 'Rels':
       self.SPECIAL_TOKENS = ('pad', 'root', 'unk')
+
     self._counts = Counter()
+    self._counts_stack = Counter()
     self._str2idx = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
     self._idx2str = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
     self._str2embed = {}
     self._embed2str = {}
+    self.trainable_embeddings = None
+    self.pretrained_embeddings = None
+    # if self.stack:
+    self._str2idx_stack = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
+    self._idx2str_stack = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
     self._str2embed_stack = {} # self._str2embed_extra = {}
     self._embed2str_stack = {} # self._embed2str_extra = {}
-    self.trainable_embeddings = None
     self.trainable_embeddings_stack = None
-    self.pretrained_embeddings = None
     self.pretrained_embeddings_stack = None # self.pretrained_embeddings_extra = None
+
     if os.path.isfile(self.vocab_file):
       self.load_vocab_file()
+      if self.stack:
+        self.add_train_file_stack()
+        self.save_vocab_file()
     else:
       self.add_train_file()
       self.save_vocab_file()
@@ -72,7 +80,11 @@ class Vocab(Configurable):
       # if self.extra_emb and not self.stack:
       #   self.load_extra_embed_file()
     self._finalize()
-    
+
+    print("str2idx has length = " + str(len(self._str2idx)))
+    if self.stack:
+      print("str2idx_stack has length = " + str(len(self._str2idx_stack)))
+
     if global_step is not None:
       self._global_sigmoid = 1-tf.nn.sigmoid(3*(2*global_step/(self.train_iters-1)-1))
     else:
@@ -148,6 +160,60 @@ class Vocab(Configurable):
             raise ValueError('The training file is misformatted at line %d' % (line_num+1))
     self.index_vocab()
     return
+
+  # =============================================================
+
+  def add_stack(self, word, count=1):
+    """"""
+
+    if not self.cased:
+      word = word.lower()
+
+    self._counts_stack[word] += int(count)
+    return
+
+  def index_vocab_stack(self):
+    """"""
+
+    cur_idx = Vocab.START_IDX
+    buff = []
+    for word_and_count in self._counts_stack.most_common():
+      if (not buff) or buff[-1][1] == word_and_count[1]:
+        buff.append(word_and_count)
+      else:
+        buff.sort()
+        for word, count in buff:
+          if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+            self._str2idx_stack[word] = cur_idx
+            self._idx2str_stack[cur_idx] = word
+            cur_idx += 1
+        buff = [word_and_count]
+    buff.sort()
+    for word, count in buff:
+      if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+        self._str2idx_stack[word] = cur_idx
+        self._idx2str_stack[cur_idx] = word
+        cur_idx += 1
+    return
+
+  # =============================================================
+  def add_train_file_stack(self):
+    """"""
+
+    with open(self.train_file) as f:
+      buff = []
+      for line_num, line in enumerate(f):
+        line = line.strip().split()
+        if line:
+          if len(line) == 10:
+            if hasattr(self.conll_idx, '__iter__'):
+              for idx in self.conll_idx:
+                self.add_stack(line[idx])
+            else:
+              self.add_stack(line[self.conll_idx])
+          else:
+            raise ValueError('The training file is misformatted at line %d' % (line_num + 1))
+    self.index_vocab_stack()
 
   # #=============================================================
   # def load_extra_embed_file(self):
@@ -241,9 +307,15 @@ class Vocab(Configurable):
   #=============================================================
   def save_vocab_file(self):
     """"""
-    
-    with open(self.vocab_file, 'w') as f:
-      for word_and_count in self._counts.most_common():
+    if self.stack:
+      vocab_file = os.path.join(self.save_dir, 'stack-' + os.path.basename(self.vocab_file))
+      wc_list = self._counts_stack.most_common()
+    else:
+      vocab_file = self.vocab_file
+      wc_list = self._counts.most_common()
+
+    with open(vocab_file, 'w') as f:
+      for word_and_count in wc_list:
         f.write('%s\t%d\n' % (word_and_count))
     return
   
@@ -286,7 +358,7 @@ class Vocab(Configurable):
 
       if self.stack:
         self.pretrained_embeddings_stack = np.pad(self.pretrained_embeddings_stack, ((self.START_IDX, 0), (0, max(0, self.stack_embed_size - self.pretrained_embeddings_stack.shape[1]))), 'constant')
-        self.pretrained_embeddings_stack = self.pretrained_embeddings_stack[:,:self.stack_embed_size]      
+        self.pretrained_embeddings_stack = self.pretrained_embeddings_stack[:,:self.stack_embed_size]
 
       # if self.extra_emb:
       #   self.pretrained_embeddings_extra = np.pad(self.pretrained_embeddings_extra, ((self.START_IDX, 0), (0, max(0, self.embed_size_extra - self.pretrained_embeddings_extra.shape[1]))), 'constant')
@@ -296,7 +368,7 @@ class Vocab(Configurable):
       with tf.variable_scope(self.name):
         self.trainable_embeddings = tanh_const * tf.get_variable('Trainable', shape=(len(self._str2idx), self.embed_size), initializer=initializer)
         if self.stack:
-          self.trainable_embeddings_stack = tanh_const * tf.get_variable('Trainable_stack', shape=(len(self._str2idx), self.embed_size), initializer=initializer)
+          self.trainable_embeddings_stack = tanh_const * tf.get_variable('Trainable_stack', shape=(len(self._str2idx_stack), self.embed_size), initializer=initializer)
 
         if self.pretrained_embeddings is not None:
           self.pretrained_embeddings /= np.std(self.pretrained_embeddings)
@@ -394,13 +466,16 @@ class Vocab(Configurable):
         key = key.lower()
       if self._str2embed:
         if self._str2embed_stack:
-          return (self._str2idx.get(key, Vocab.UNK), self._str2embed.get(key.lower(), Vocab.UNK), self._str2embed_stack.get(key.lower(), Vocab.UNK_TOP_PRET)) # top pret_emb may have <unk>
+          return (self._str2idx.get(key, Vocab.UNK), self._str2idx_stack.get(key, Vocab.UNK_TOP_PRET), self._str2embed.get(key.lower(), Vocab.UNK), self._str2embed_stack.get(key.lower(), Vocab.UNK_TOP_PRET)) # top pret_emb may have <unk>
         else:
           return (self._str2idx.get(key, Vocab.UNK), self._str2embed.get(key.lower(), Vocab.UNK))
       else:
         return (self._str2idx.get(key, Vocab.UNK),)
     elif isinstance(key, (int, long, np.int32, np.int64)):
-      return self._idx2str.get(key, self.SPECIAL_TOKENS[Vocab.UNK])
+      if self.stack or self._str2embed_stack:
+        return self._idx2str_stack.get(key, self.SPECIAL_TOKENS[Vocab.UNK])
+      else:
+        return self._idx2str.get(key, self.SPECIAL_TOKENS[Vocab.UNK])
     elif hasattr(key, '__iter__'):
       return tuple(self[k] for k in key)
     else:

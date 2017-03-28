@@ -32,10 +32,10 @@ class Parser(BaseParser):
     
     if self.load_emb:
       if self.stack:
-        word_inputs_top = vocabs[0].embedding_lookup(inputs[:,:,0], pret_inputs_stack=inputs[:,:,2], moving_params=self.moving_params, top=True)
-        word_inputs_btm = vocabs[0].embedding_lookup(inputs[:,:,0], pret_inputs=inputs[:,:,1], moving_params=self.moving_params)
-        tag_inputs_top  = vocabs[1].embedding_lookup(inputs[:,:,3], moving_params=self.moving_params, top=True)
-        tag_inputs_btm  = vocabs[1].embedding_lookup(inputs[:,:,3], moving_params=self.moving_params)
+        word_inputs_top = vocabs[0].embedding_lookup(inputs[:,:,1], pret_inputs_stack=inputs[:,:,3], moving_params=self.moving_params, top=True)
+        word_inputs_btm = vocabs[0].embedding_lookup(inputs[:,:,0], pret_inputs=inputs[:,:,2], moving_params=self.moving_params)
+        tag_inputs_top  = vocabs[1].embedding_lookup(inputs[:,:,4], moving_params=self.moving_params, top=True)
+        tag_inputs_btm  = vocabs[1].embedding_lookup(inputs[:,:,4], moving_params=self.moving_params)
       else:
         word_inputs = vocabs[0].embedding_lookup(inputs[:,:,0], inputs[:,:,1], moving_params=self.moving_params)
         tag_inputs  = vocabs[1].embedding_lookup(inputs[:,:,2], moving_params=self.moving_params)

@@ -36,11 +36,12 @@ class BaseParser(NN):
         if token[0] > 1:
           word = vocabs[0][token[0]]
           if self.load_emb:
-            glove = vocabs[0].get_embed(token[1])
             if self.stack:
-              ice = vocabs[0].get_embed(token[2], is_stack=True)
-              tag = vocabs[1][token[3]]
+              glove = vocabs[0].get_embed(token[2])
+              ice = vocabs[0].get_embed(token[3], is_stack=True)
+              tag = vocabs[1][token[4]]
             else:
+              glove = vocabs[0].get_embed(token[1])
               tag = vocabs[1][token[2]]
           else:
             tag = vocabs[1][token[1]]
@@ -51,7 +52,7 @@ class BaseParser(NN):
           gold_rel = vocabs[2][gold[2]]
           if self.load_emb:
             if self.stack:
-              fileobject.write('%d\t%s\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, word, glove, ice, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
+              fileobject.write('%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, token[0], token[1], word, glove, ice, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
             else:
               fileobject.write('%d\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, word, glove, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
           else:
@@ -72,7 +73,7 @@ class BaseParser(NN):
       
       if self.load_emb:
         if self.stack:
-          sent = -np.ones( (length, 10), dtype=int)
+          sent = -np.ones( (length, 11), dtype=int)
         else:
           sent = -np.ones( (length, 9), dtype=int)
       else:
@@ -81,11 +82,11 @@ class BaseParser(NN):
       sent[:,0] = tokens
       if self.load_emb:
         if self.stack:
-          sent[:,1:5] = inputs[tokens]
-          sent[:,5] = targets[tokens,0]
-          sent[:,6] = parse_preds[tokens]
-          sent[:,7] = rel_preds[tokens]
-          sent[:,8:] = targets[tokens, 1:]
+          sent[:,1:6] = inputs[tokens]
+          sent[:,6] = targets[tokens,0]
+          sent[:,7] = parse_preds[tokens]
+          sent[:,8] = rel_preds[tokens]
+          sent[:,9:] = targets[tokens, 1:]
         else:
           sent[:,1:4] = inputs[tokens]
           sent[:,4] = targets[tokens,0]
@@ -125,7 +126,7 @@ class BaseParser(NN):
   def input_idxs(self):
     if self.load_emb:
       if self.stack: # self.extra_emb:
-        return (0, 1, 2, 3)
+        return (0, 1, 2, 3, 4)
       else:
         return (0, 1, 2)
     else:
@@ -134,7 +135,7 @@ class BaseParser(NN):
   def target_idxs(self):
     if self.load_emb:
       if self.stack: # self.extra_emb:
-        return (4, 5, 6)
+        return (5, 6, 7)
       else:
         return (3, 4, 5)
     else:

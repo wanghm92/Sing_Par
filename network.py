@@ -200,7 +200,7 @@ class Network(Configurable):
       valid_time = 0
       valid_loss = 0
       valid_accuracy = 0
-
+      epoch_finished = 0
       while total_train_iters < train_iters:
 
         for j, (feed_dict, _) in enumerate(self.train_minibatches()):
@@ -233,6 +233,7 @@ class Network(Configurable):
           self.history['train_accuracy'].append(100 * n_correct / n_tokens)
 
           if total_train_iters == 1 or total_train_iters % validate_every == 0:
+            L.info("Validating and performing sanity check ...")
             valid_time = 0
             valid_loss = 0
             n_valid_sents = 0
@@ -264,8 +265,8 @@ class Network(Configurable):
         train_time = n_train_sents / train_time
         epoch_finished = sess.run(self._global_epoch)
         L.info('=== Finshed %d Epochs === \n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (epoch_finished, train_loss_epoch, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
+        L.info("Global_step = %s"%sess.run(self._global_step))
 
-        # if save_every and (total_train_iters % save_every == 0):
         L.info('Saving model after === %d === epochs to --> %s' % (epoch_finished, os.path.join(self.save_dir, self.name.lower() + '-trained-' + str(epoch_finished))))
         saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
         
@@ -275,17 +276,10 @@ class Network(Configurable):
         self.test(sess, validate=False,test_epoch=epoch_finished)
 
     except KeyboardInterrupt:
-      # try:
-      #   raw_input('\nPress <Enter> to save or <Ctrl-C> to exit.')
-      # except:
-      #   L.info('\r', end='')
-      #   sys.exit(0)
       saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
 
     with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
       pkl.dump(self.history, f)
-    # with open(os.path.join(self.save_dir, 'scores.txt'), 'w') as f:
-      # pass
 
     self.test(sess, validate=True, test_epoch=epoch_finished)
     self.test(sess, validate=False,test_epoch=epoch_finished)
@@ -335,12 +329,12 @@ class Network(Configurable):
               tup = (
                 i+1,
                 word,
-                self.tags[pred[4]] if pred[4] != -1 else self.tags[datum[3]],
                 self.tags[pred[5]] if pred[5] != -1 else self.tags[datum[4]],
-                str(pred[6]) if pred[6] != -1 else str(datum[5]),
-                self.rels[pred[7]] if pred[7] != -1 else self.rels[datum[6]],
-                str(pred[8]) if pred[8] != -1 else '_',
-                self.rels[pred[9]] if pred[9] != -1 else '_',
+                self.tags[pred[6]] if pred[6] != -1 else self.tags[datum[5]],
+                str(pred[7]) if pred[7] != -1 else str(datum[6]),
+                self.rels[pred[8]] if pred[8] != -1 else self.rels[datum[7]],
+                str(pred[9]) if pred[9] != -1 else '_',
+                self.rels[pred[10]] if pred[10] != -1 else '_',
               )
             else:
               tup = (
@@ -459,13 +453,18 @@ if __name__ == '__main__':
   model = getattr(models, args.model)
   
   if 'save_dir' in cargs and os.path.isdir(cargs['save_dir']) and not (args.test or args.load):
-    raw_input('Save directory already exists. Press <Enter> to overwrite or <Ctrl-C> to exit.')
+    L.info('[!!!---ALERT---!!!] Save directory already exists. Overwriting directory %s'%cargs['save_dir'])
   if (args.test or args.load) and 'save_dir' in cargs:
-    cargs['config_file'] = os.path.join(cargs['save_dir'], 'config.cfg')
+    L.info('[!!!---ALERT---!!!] Config file may already exist.')
+    if args.test:
+      L.info(
+        '[!!!---ALERT---!!!] Config file already exist. Overwriting config in directory %s' % cargs['save_dir'])
+      cargs['config_file'] = os.path.join(cargs['save_dir'], 'config.cfg')
   network = Network(model, **cargs)
   config_proto = tf.ConfigProto()
   config_proto.gpu_options.per_process_gpu_memory_fraction = network.per_process_gpu_memory_fraction
   config_proto.gpu_options.allow_growth = True
+
   with tf.Session(config=config_proto) as sess:
     sess.run(tf.global_variables_initializer())
 
@@ -474,19 +473,17 @@ if __name__ == '__main__':
     else:
       pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-pretrained-' + str(args.load_epoch))
 
-    if args.pretrain:
+    if args.pretrain and not args.test:
       network.pretrain(sess)
     if not args.test:
       if args.load:
         os.system('echo Loading: > %s/HEAD' % network.save_dir)
         os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
-        L.info('Loading bottom LSTM from model : %s'%pre_trained_model)
-        save_vars = filter(lambda x: u'RNN4' not in x.name and u'RNN5' not in x.name and u'Trainable_stack' not in x.name and u'Pretrained_stack' not in x.name and u'MLP_stack' not in x.name, tf.all_variables())
-        # new_saver = tf.train.import_meta_graph(os.path.abspath(pre_trained_model+'.meta'))
-        # saver = tf.train.Saver(name=network.name)
+        L.info('Loading parameters to bottom LSTM from model : %s'%pre_trained_model)
+        save_vars = filter(lambda x: u'RNN4' not in x.name and u'RNN5' not in x.name and u'RNN6' not in x.name and u'Trainable_stack' not in x.name and u'Pretrained_stack' not in x.name and u'MLP_stack' not in x.name, tf.all_variables())
         saver = tf.train.Saver(name=network.name, var_list=save_vars)
         saver.restore(sess, pre_trained_model)
-        L.info('Loaded bottom LSTM from model : %s'%pre_trained_model)
+        L.info('Loaded parameters to bottom LSTM from model : %s'%pre_trained_model)
         if os.path.isfile(os.path.join(network.save_dir, 'history.pkl')):
           with open(os.path.join(network.save_dir, 'history.pkl')) as f:
             network.history = pkl.load(f)
@@ -498,8 +495,7 @@ if __name__ == '__main__':
       os.system('echo Testing: >> %s/HEAD' % network.save_dir)
       os.system('git rev-parse HEAD >> %s/HEAD' % network.save_dir)
       saver = tf.train.Saver(name=network.name)
-      # print(sess.run(tf.train.Saver.last_checkpoints))
-      # saver.restore(sess, tf.train.latest_checkpoint(network.save_dir, latest_filename=network.name.lower()))
+      pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-trained-' + str(args.load_epoch))
       saver.restore(sess, pre_trained_model)
-      network.test(sess, validate=False,test_epoch=args.load_epoch)
-      # network.test(sess, validate=False)
+      network.test(sess, validate=False,test_epoch=int(args.load_epoch))
+      # network.test(sess, validate=True,test_epoch=int(args.load_epoch))
