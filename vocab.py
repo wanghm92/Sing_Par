@@ -81,10 +81,6 @@ class Vocab(Configurable):
       #   self.load_extra_embed_file()
     self._finalize()
 
-    print("str2idx has length = " + str(len(self._str2idx)))
-    if self.stack:
-      print("str2idx_stack has length = " + str(len(self._str2idx_stack)))
-
     if global_step is not None:
       self._global_sigmoid = 1-tf.nn.sigmoid(3*(2*global_step/(self.train_iters-1)-1))
     else:
@@ -472,7 +468,7 @@ class Vocab(Configurable):
       else:
         return (self._str2idx.get(key, Vocab.UNK),)
     elif isinstance(key, (int, long, np.int32, np.int64)):
-      if self.stack or self._str2embed_stack:
+      if self._str2embed_stack:
         return self._idx2str_stack.get(key, self.SPECIAL_TOKENS[Vocab.UNK])
       else:
         return self._idx2str.get(key, self.SPECIAL_TOKENS[Vocab.UNK])
