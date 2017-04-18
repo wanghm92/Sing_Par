@@ -86,21 +86,11 @@ class Vocab(Configurable):
     else:
       self._global_sigmoid = 1
     return
-  
-  #=============================================================
-  def add(self, word, count=1):
-    """"""
-    
-    if not self.cased:
-      word = word.lower()
-    
-    self._counts[word] += int(count)
-    return
-  
-  #=============================================================
+
+  # =============================================================
   def update(self, iterable):
     """"""
-    
+
     for elt in iterable:
       if isinstance(elt, basestring):
         self.add(elt)
@@ -111,8 +101,17 @@ class Vocab(Configurable):
       else:
         raise ValueError('WTF did you just pass to Vocab.update?')
     return
-  
+
   #=============================================================
+  def add(self, word, count=1):
+    """"""
+    
+    if not self.cased:
+      word = word.lower()
+    
+    self._counts[word] += int(count)
+    return
+
   def index_vocab(self):
     """"""
     
@@ -136,8 +135,7 @@ class Vocab(Configurable):
         self._idx2str[cur_idx] = word
         cur_idx += 1
     return
-  
-  #=============================================================
+
   def add_train_file(self):
     """"""
     
@@ -192,7 +190,6 @@ class Vocab(Configurable):
         cur_idx += 1
     return
 
-  # =============================================================
   def add_train_file_stack(self):
     """"""
 
@@ -210,6 +207,8 @@ class Vocab(Configurable):
           else:
             raise ValueError('The training file is misformatted at line %d' % (line_num + 1))
     self.index_vocab_stack()
+
+  # =============================================================
 
   # #=============================================================
   # def load_extra_embed_file(self):

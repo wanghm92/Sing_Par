@@ -119,8 +119,10 @@ class BaseParser(NN):
             if line[7] == line[9]:
               correct['LAS'][-1] = 1
     correct = {k:np.array(v) for k, v in correct.iteritems()}
-    return 'UAS: %.2f    LAS: %.2f\n' % (np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100), correct
-  
+
+    # return 'UAS: %.2f    LAS: %.2f\n' % (np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100), correct
+    return np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100, correct
+
   #=============================================================
   @property
   def input_idxs(self):

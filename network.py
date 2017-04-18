@@ -28,7 +28,7 @@ L = logging.getLogger(program)
 logging.basicConfig(format='%(asctime)s: %(levelname)s: %(message)s')
 logging.root.setLevel(level=logging.INFO)
 L.info("Running %s" % ' '.join(sys.argv))
-MAX_TO_KEEP=10000
+MAX_TO_KEEP=10
 
 # TODO make the optimizer class inherit from Configurable
 # TODO bayesian hyperparameter optimization
@@ -201,6 +201,8 @@ class Network(Configurable):
       valid_loss = 0
       valid_accuracy = 0
       epoch_finished = 0
+      top_uas = 0
+      top_las = 0
       while total_train_iters < train_iters:
 
         for j, (feed_dict, _) in enumerate(self.train_minibatches()):
@@ -267,12 +269,16 @@ class Network(Configurable):
         L.info('=== Finshed %d Epochs === \n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (epoch_finished, train_loss_epoch, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
         L.info("Global_step = %s"%sess.run(self._global_step))
 
-        L.info('Saving model after === %d === epochs to --> %s' % (epoch_finished, os.path.join(self.save_dir, self.name.lower() + '-trained-' + str(epoch_finished))))
-        saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
-        
         with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
           pkl.dump(self.history, f)
-        self.test(sess, validate=True,test_epoch=epoch_finished)
+
+        uas, las = self.test(sess, validate=True,test_epoch=epoch_finished)
+        if uas > top_uas or (uas == top_uas and las >= top_las):
+          top_uas = uas
+          top_las = las
+          L.info('Saving model after === %d === epochs to --> %s' % (epoch_finished, os.path.join(self.save_dir, self.name.lower() + '-trained-' + str(epoch_finished))))
+          saver.save(sess, os.path.join(self.save_dir, self.name.lower() + '-trained'), latest_filename=self.name.lower(), global_step=self.global_epoch)
+
         self.test(sess, validate=False,test_epoch=epoch_finished)
 
     except KeyboardInterrupt:
@@ -303,7 +309,7 @@ class Network(Configurable):
       dataset = self._testset
       op = self.ops['test_op'][1]
       score_file = 'scores_test.txt'
-    
+
     all_predictions = [[]]
     all_sents = [[]]
     bkt_idx = 0
@@ -361,9 +367,11 @@ class Network(Configurable):
           f.write('%s\t%s\t_\t%s\t%s\t_\t%s\t%s\t%s\t%s\n' % tup)
         f.write('\n')
     with open(os.path.join(self.save_dir, score_file), 'a+') as f:
-      s, _ = self.model.evaluate(os.path.join(self.save_dir, os.path.basename(filename)), punct=self.model.PUNCT)
+      uas, las, _ = self.model.evaluate(os.path.join(self.save_dir, os.path.basename(filename)), punct=self.model.PUNCT)
+      s = 'UAS: %.2f    LAS: %.2f\n' % (uas, las)
       f.write('Epoch%4d : '%test_epoch + s)
-    return
+
+    return uas,las
   
   #=============================================================
   def _gen_ops(self):
@@ -455,11 +463,12 @@ if __name__ == '__main__':
   if 'save_dir' in cargs and os.path.isdir(cargs['save_dir']) and not (args.test or args.load):
     L.info('[!!!---ALERT---!!!] Save directory already exists. Overwriting directory %s'%cargs['save_dir'])
   if (args.test or args.load) and 'save_dir' in cargs:
-    L.info('[!!!---ALERT---!!!] Config file may already exist.')
     if args.test:
       L.info(
         '[!!!---ALERT---!!!] Config file already exist. Overwriting config in directory %s' % cargs['save_dir'])
       cargs['config_file'] = os.path.join(cargs['save_dir'], 'config.cfg')
+    else:
+      L.info('[!!!---ALERT---!!!] Config file may already exist.')
   network = Network(model, **cargs)
   config_proto = tf.ConfigProto()
   config_proto.gpu_options.per_process_gpu_memory_fraction = network.per_process_gpu_memory_fraction
@@ -498,4 +507,4 @@ if __name__ == '__main__':
       pre_trained_model = os.path.join(network.save_dir, network.name.lower() + '-trained-' + str(args.load_epoch))
       saver.restore(sess, pre_trained_model)
       network.test(sess, validate=False,test_epoch=int(args.load_epoch))
-      # network.test(sess, validate=True,test_epoch=int(args.load_epoch))
+      network.test(sess, validate=True,test_epoch=int(args.load_epoch))
