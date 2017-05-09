@@ -1,4 +1,26 @@
+# Singlish Parser
+This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 long paper [Universal Dependencies Parsing for Colloquial Singaporean English](https://chairs-blog.acl2017.org/2017/04/05/accepted-papers-and-demonstrations/). The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
+
+The Singlish dependency treebank is released here as a new dependency parsing dataset, annotated with [Universal Dependencies](http://universaldependencies.org), for an important creole of English, Colloquial Singaporean English (Singlish), contained in the folder Singlish/treebank. 
+The model for the Singlish parser with neural stacking, as presented in the paper, is in the folder Singlish/model. The corresponding config file is config/Singlish.cfg and the Singlish embeddings used is Singlish/embedding/Singlish.ice.vec.txt
+
+Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
+
+Temporary Citation Bibtex:<br />
+@InProceedings{Hongmin-zhang:2017:P17-1,<br />
+  author    = {Hongmin, Wang and Yue, Zhang and GuangYong Leonard, Chan and Jie, Yang and Hai Leong, Chieu},<br />
+  title     = {Universal Dependencies Parsing for Colloquial Singaporean English},<br />
+  booktitle = {Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},<br />
+  month     = {August},<br />
+  year      = {2017},<br />
+  address   = {Vancouver, Canada},<br />
+  publisher = {Association for Computational Linguistics}<br />
+}
+
+Original Readme:
+
 # Parser
+
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
 ## Where are the files you care about?
