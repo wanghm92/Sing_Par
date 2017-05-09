@@ -1,8 +1,10 @@
 # Singlish Parser
-This repository contains the modified code used to train the Singlish dependency parser. The Singlish dependency treebank is in the folder data/Singlish, and the model presented in the paper is in the folder models/singlish_parser.
+This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 long paper "Universal Dependencies Parsing for Colloquial Singaporean English". The Singlish dependency parser is built on top of a English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme is follows this Readme[
 
-The following contents are the original Readme for the reporsitory https://github.com/tdozat/Parser:
+The Singlish dependency treebank is released here as a new dependency parsing dataset, annotated with Universal Dependencies, for an important creole of English, Colloquial Singaporean English (Singlish), contained in the folder Singlish/treebank. 
+The model for the Singlish parser with neural stacking, as presented in the paper, is in the folder Singlish/model. The corresponding config file is config/Singlish.cfg and the Singlish embeddings used is Singlish/embedding/Singlish.ice.vec.txt
 
+Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
 
 # Parser
 
