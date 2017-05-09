@@ -7,14 +7,14 @@ The model for the Singlish parser with neural stacking, as presented in the pape
 Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
 
 Temporary Citation Bibtex:
-@InProceedings{Hongmin-zhang:2017:P17-1,
-  author    = {Hongmin, Wang and Yue, Zhang and GuangYong Leonard, Chan and Jie, Yang and Hai Leong, Chieu},
-  title     = {Universal Dependencies Parsing for Colloquial Singaporean English},
-  booktitle = {Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
-  month     = {August},
-  year      = {2017},
-  address   = {Vancouver, Canada},
-  publisher = {Association for Computational Linguistics}
+@InProceedings{Hongmin-zhang:2017:P17-1,<br />
+  author    = {Hongmin, Wang and Yue, Zhang and GuangYong Leonard, Chan and Jie, Yang and Hai Leong, Chieu},<br />
+  title     = {Universal Dependencies Parsing for Colloquial Singaporean English},<br />
+  booktitle = {Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},<br />
+  month     = {August},<br />
+  year      = {2017},<br />
+  address   = {Vancouver, Canada},<br />
+  publisher = {Association for Computational Linguistics}<br />
 }
 
 Original Readme:
