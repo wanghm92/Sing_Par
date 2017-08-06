@@ -1,5 +1,5 @@
 # Singlish Parser
-This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 long paper [Universal Dependencies Parsing for Colloquial Singaporean English](https://arxiv.org/abs/1705.06463). The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
+This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 long paper [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P/P17/P17-1159.pdf). The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
 
 The Singlish dependency treebank is released here as a new dependency parsing dataset, annotated with [Universal Dependencies](http://universaldependencies.org), for an important creole of English, Colloquial Singaporean English (Singlish), contained in the folder Singlish/treebank. 
 
@@ -9,7 +9,9 @@ The model for the Singlish POS tagger with neural stacking is in the folder Sing
 
 Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
 
-Please go to the ud_tf0.12 branch to clone the Singlish dependency parser code and materials.
+**Please go to the ud_tf0.12 branch to clone the Singlish dependency parser code and materials.**
+
+Bibtex : [http://aclweb.org/anthology/P/P17/P17-1159.bib](http://aclweb.org/anthology/P/P17/P17-1159.bib)
 
 Original Readme:
 
