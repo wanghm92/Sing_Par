@@ -23,11 +23,11 @@ class BaseOptimizer(Configurable):
     return
   
   #=============================================================
-  def minimize(self, loss, name=None):
+  def minimize(self, loss, var_list, name=None):
     """"""
     
     # Error checking
-    var_list = tf.trainable_variables()
+    # var_list = tf.trainable_variables()
     for x_tm1 in var_list:
       if not isinstance(x_tm1, tf.Variable):
         raise TypeError("Argument is not a tf.Variable: %s" % x_tm1)

@@ -40,7 +40,7 @@ class Network(Configurable):
   #=============================================================
   def __init__(self, model, *args, **kwargs):
     """"""
-    
+
     if args:
       if len(args) > 1:
         raise TypeError('Parser takes at most one argument')
@@ -51,8 +51,8 @@ class Network(Configurable):
       os.mkdir(self.save_dir)
     with open(os.path.join(self.save_dir, 'config.cfg'), 'w') as f:
       self._config.write(f)
-      
-    print(args)
+    if args:
+      print(args)
 
     self._global_step = tf.Variable(0., trainable=False)
     self._global_epoch = tf.Variable(0., trainable=False)
@@ -60,6 +60,7 @@ class Network(Configurable):
     
     L.info("Load emb = %s"%self.load_emb)
     L.info("Stacking = %s"%self.stack)
+    L.info("Multi-view = %s"%self.multi)
     if self.stack:
       L.info("Stack emb File = %s"%self.embed_file_stack)
       L.info("Stack emb Size = %s"%self.stack_embed_size)
@@ -79,20 +80,36 @@ class Network(Configurable):
                     global_step=self.global_step)
       self._vocabs.append(vocab)
     
-    self._trainset = Dataset(self.train_file, self._vocabs, model, self._config, name='Trainset')
-    self._validset = Dataset(self.valid_file, self._vocabs, model, self._config, name='Validset')
-    self._testset = Dataset(self.test_file, self._vocabs, model, self._config, name='Testset')
-    
+    self._trainset = Dataset(self.train_file, self._vocabs, model, False, self._config, name='Trainset')
+    self._validset = Dataset(self.valid_file, self._vocabs, model, False, self._config, name='Validset')
+    self._testset = Dataset(self.test_file, self._vocabs, model, False, self._config, name='Testset')
+
+    if self.multi:
+      self._trainset_multi = Dataset(self.train_file_multi, self._vocabs, model, True, self._config, name='Trainset_multi')
+      self._trainset_multi.inputs = self._trainset.inputs
+      self._trainset_multi.targets = self._trainset.targets
+      self.history = {
+        'train_loss': [],
+        'train_accuracy': [],
+        'train_loss_multi': [],
+        'train_accuracy_multi': [],
+        'valid_loss': [],
+        'valid_accuracy': [],
+        'test_acuracy': 0
+      }
+    else:
+      self.history = {
+        'train_loss': [],
+        'train_accuracy': [],
+        'valid_loss': [],
+        'valid_accuracy': [],
+        'test_acuracy': 0
+      }
+
     self._ops = self._gen_ops()
-    self.history = {
-      'train_loss': [],
-      'train_accuracy': [],
-      'valid_loss': [],
-      'valid_accuracy': [],
-      'test_acuracy': 0
-    }
+
     return
-  
+
   #=============================================================
   def train_minibatches(self):
     """"""
@@ -100,7 +117,17 @@ class Network(Configurable):
     return self._trainset.get_minibatches(self.train_batch_size,
                                           self.model.input_idxs,
                                           self.model.target_idxs)
-  
+
+  #=============================================================
+  def train_minibatches_multi(self):
+    """"""
+    if self.multi:
+      return self._trainset_multi.get_minibatches(self.train_batch_size,
+                                          self.model.input_idxs,
+                                          self.model.target_idxs)
+    else:
+      return None
+
   #=============================================================
   def valid_minibatches(self):
     """"""
@@ -197,17 +224,75 @@ class Network(Configurable):
       n_train_tokens = 0
       n_train_iters = 0
       total_train_iters = sess.run(self.global_step)
+      total_train_iters_multi = 0
       valid_time = 0
       valid_loss = 0
       valid_accuracy = 0
       epoch_finished = 0
       top_uas = 0
       top_las = 0
+
+      train_time_multi = 0
+      train_loss_multi = 0
+      n_train_iters_multi = 0
+      n_train_correct_multi = 0
+      n_train_tokens_multi = 0
+      n_train_sents_multi = 0
+      corpus_weighting = 0
+
+      minibatches_multi = self.train_minibatches_multi()
+
       while total_train_iters < train_iters:
 
+        # -------- training one epoch start -------- #
         for j, (feed_dict, _) in enumerate(self.train_minibatches()):
-          if print_every and total_train_iters % print_every == 0 and total_train_iters > 0:
 
+          # -------- training one multi-view minibatch start -------- #
+          if self.multi:
+            corpus_weighting += 1
+
+            # get minibatch from multi_view dataset
+            if corpus_weighting >= self.multi_train_ratio:
+              corpus_weighting = 0
+              try:
+                feed_dict_multi, _ = next(minibatches_multi)
+              except StopIteration:
+                minibatches_multi = self.train_minibatches_multi()
+                feed_dict_multi, _ = next(minibatches_multi)
+
+              if print_every and total_train_iters_multi % print_every == 0 and total_train_iters_multi > 0:
+                train_loss_multi /= n_train_iters_multi
+                train_accuracy_multi = 100 * n_train_correct_multi / n_train_tokens_multi
+                train_time_multi = n_train_sents_multi / train_time_multi
+                L.info('Number of MULTI-VIEW mini-batches trained: === %d ===\n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec' % (total_train_iters_multi, train_loss_multi, train_accuracy_multi, train_time_multi))
+                train_time_multi = 0
+                train_loss_multi = 0
+                n_train_sents_multi = 0
+                n_train_correct_multi = 0
+                n_train_tokens_multi = 0
+                n_train_iters_multi = 0
+
+              train_targets_multi = feed_dict_multi[self._trainset_multi.targets]
+              start_time = time.time()
+
+              # L.info('Training one multi-view minibatch start')
+              _, loss_multi, n_correct_multi, n_tokens_multi = sess.run(self.ops['train_op_multi'], feed_dict=feed_dict_multi)
+              # L.info('Training one multi-view minibatch end')
+
+              train_time_multi += time.time() - start_time
+              train_loss_multi += loss_multi
+              n_train_sents_multi += len(train_targets_multi)
+              n_train_correct_multi += n_correct_multi
+              n_train_tokens_multi += n_tokens_multi
+              n_train_iters_multi += 1
+              total_train_iters_multi += 1
+              self.history['train_loss_multi'].append(loss_multi)
+              self.history['train_accuracy_multi'].append(100 * n_correct_multi / n_tokens_multi)
+
+          # -------- training one multi-view minibatch end -------- #
+
+          # -------- training one minibatch start -------- #
+          if print_every and total_train_iters % print_every == 0 and total_train_iters > 0:
             train_loss /= n_train_iters
             train_accuracy = 100 * n_train_correct / n_train_tokens
             train_time = n_train_sents / train_time
@@ -222,7 +307,9 @@ class Network(Configurable):
           train_targets = feed_dict[self._trainset.targets]
           start_time = time.time()
 
+          # L.info('Training one ORI minibatch start')
           _, loss, n_correct, n_tokens = sess.run(self.ops['train_op'], feed_dict=feed_dict)
+          # L.info('Training one ORI minibatch end')
 
           train_time += time.time() - start_time
           train_loss += loss
@@ -261,12 +348,17 @@ class Network(Configurable):
             self.history['valid_loss'].append(valid_loss)
             self.history['valid_accuracy'].append(valid_accuracy)
 
+            # -------- training one minibatch end -------- #
+
+        # -------- training one epoch end -------- #
+
         sess.run(self._global_epoch.assign_add(1.))
         train_loss_epoch = train_loss/n_train_iters
         train_accuracy = 100 * n_train_correct / n_train_tokens
         train_time = n_train_sents / train_time
         epoch_finished = sess.run(self._global_epoch)
         L.info('=== Finshed %d Epochs === \n\tTrain loss: %.4f    Train acc: %5.2f%%    Train rate: %6.1f sents/sec\n\tValid loss: %.4f    Valid acc: %5.2f%%    Valid rate: %6.1f sents/sec' % (epoch_finished, train_loss_epoch, train_accuracy, train_time, valid_loss, valid_accuracy, valid_time))
+        L.info("total_train_iters = %d"%total_train_iters)
         L.info("Global_step = %s"%sess.run(self._global_step))
 
         with open(os.path.join(self.save_dir, 'history.pkl'), 'w') as f:
@@ -379,7 +471,7 @@ class Network(Configurable):
     
     optimizer = optimizers.RadamOptimizer(self._config, global_step=self.global_step)
     train_output = self._model(self._trainset)
-    
+
     l2_loss = self.l2_reg * tf.add_n([tf.nn.l2_loss(matrix) for matrix in tf.get_collection('Weights')]) if self.l2_reg else self.model.ZERO
     recur_loss = self.recur_reg * tf.add_n(tf.get_collection('recur_losses')) if self.recur_reg else self.model.ZERO
     covar_loss = self.covar_reg * tf.add_n(tf.get_collection('covar_losses')) if self.covar_reg else self.model.ZERO
@@ -388,16 +480,31 @@ class Network(Configurable):
     if self.recur_reg or self.covar_reg or self.ortho_reg or 'pretrain_loss' in train_output:
       optimizer2 = optimizers.RadamOptimizer(self._config)
       pretrain_loss = train_output.get('pretrain_loss', self.model.ZERO)
-      pretrain_op = optimizer2.minimize(pretrain_loss+regularization_loss)
+      pretrain_op = optimizer2.minimize(pretrain_loss+regularization_loss, var_list=tf.trainable_variables())
     else:
       pretrain_loss = self.model.ZERO
       pretrain_op = self.model.ZERO
-      
-    train_op = optimizer.minimize(train_output['loss']+l2_loss+regularization_loss)
+
+    if self.multi:
+      train_output_multi = self._model(self._trainset_multi, multi=True)
+      optimizer_multi = optimizers.RadamOptimizer(self._config, global_step=self.global_step)
+      update_vars_multi = filter(lambda x: u'_base' not in x.name, tf.trainable_variables())
+      train_op_multi = optimizer_multi.minimize(train_output_multi['loss_multi']+l2_loss+regularization_loss, var_list=update_vars_multi)
+
+    update_vars = filter(lambda x: u'_multi' not in x.name, tf.trainable_variables())
+    train_op = optimizer.minimize(train_output['loss']+l2_loss+regularization_loss, var_list=update_vars)
+
+    L.info('train_op_multi is updating the following variables different from train_op:')
+    for v in [x for x in update_vars_multi if not x in update_vars]:
+      print(v.name)
+    L.info('train_op is updating the following variables different from train_op_multi:')
+    for v in [x for x in update_vars if not x in update_vars_multi]:
+      print(v.name)
+
     # These have to happen after optimizer.minimize is called
     valid_output = self._model(self._validset, moving_params=optimizer)
     test_output = self._model(self._testset, moving_params=optimizer)
-    
+
     ops = {}
     ops['pretrain_op'] = [pretrain_op,
                           pretrain_loss,
@@ -408,6 +515,11 @@ class Network(Configurable):
                        train_output['loss']+l2_loss+regularization_loss,
                        train_output['n_correct'],
                        train_output['n_tokens']]
+    if self.multi:
+      ops['train_op_multi'] = [train_op_multi,
+                               train_output_multi['loss_multi']+l2_loss+regularization_loss,
+                               train_output_multi['n_correct_multi'],
+                               train_output_multi['n_tokens_multi']]
     ops['valid_op'] = [valid_output['loss'],
                        valid_output['n_correct'],
                        valid_output['n_tokens'],

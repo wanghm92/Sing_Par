@@ -29,6 +29,8 @@ class Vocab(Configurable):
   START_IDX = len(SPECIAL_TOKENS)
   PAD, ROOT, UNK = range(START_IDX)
   UNK_TOP_PRET = UNK
+  STACK = 1
+  MULTI = 2
   
   #=============================================================
   def __init__(self, vocab_file, conll_idx, *args, **kwargs):
@@ -62,16 +64,26 @@ class Vocab(Configurable):
     self._idx2str_stack = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
     self._str2embed_stack = {} # self._str2embed_extra = {}
     self._embed2str_stack = {} # self._embed2str_extra = {}
+
+    # self._str2idx_multi = dict(zip(self.SPECIAL_TOKENS, range(Vocab.START_IDX)))
+    # self._idx2str_multi = dict(zip(range(Vocab.START_IDX), self.SPECIAL_TOKENS))
+
     self.trainable_embeddings_stack = None
     self.pretrained_embeddings_stack = None # self.pretrained_embeddings_extra = None
 
     if os.path.isfile(self.vocab_file):
       self.load_vocab_file()
       if self.stack:
-        self.add_train_file_stack()
+        self.add_train_file(self.train_file, mode=self.STACK)
+        self.save_vocab_file()
+      elif self.multi:
+        self.add_train_file(self.train_file_multi)
         self.save_vocab_file()
     else:
-      self.add_train_file()
+      self.add_train_file(self.train_file)
+      if self.multi:
+        self.add_train_file(self.train_file_multi)
+        # self.save_vocab_file()
       self.save_vocab_file()
     if load_embed_file:
       self.load_embed_file()
@@ -103,43 +115,69 @@ class Vocab(Configurable):
     return
 
   #=============================================================
-  def add(self, word, count=1):
+  def add(self, word, mode=0, count=1):
     """"""
     
     if not self.cased:
       word = word.lower()
-    
-    self._counts[word] += int(count)
+
+    if mode == self.STACK:
+      self._counts_stack[word] += int(count)
+    else:
+      self._counts[word] += int(count)
+
     return
 
-  def index_vocab(self):
+  def index_vocab(self, mode=0):
     """"""
-    
+
     cur_idx = Vocab.START_IDX
     buff = []
-    for word_and_count in self._counts.most_common():
+    if mode == self.STACK:
+      most_com = self._counts_stack.most_common()
+    else:
+      most_com = self._counts.most_common()
+    for word_and_count in most_com:
       if (not buff) or buff[-1][1] == word_and_count[1]:
         buff.append(word_and_count)
       else:
         buff.sort()
-        for word, count in buff: 
-          if count >= self.min_occur_count and word not in self._str2idx:
-            self._str2idx[word] = cur_idx
-            self._idx2str[cur_idx] = word
-            cur_idx += 1
+
+        if mode == self.STACK:
+          for word, count in buff:
+            if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+              self._str2idx_stack[word] = cur_idx
+              self._idx2str_stack[cur_idx] = word
+              cur_idx += 1
+        else:
+          for word, count in buff:
+            if count >= self.min_occur_count and word not in self._str2idx:
+              self._str2idx[word] = cur_idx
+              self._idx2str[cur_idx] = word
+              cur_idx += 1
+
         buff = [word_and_count]
     buff.sort()
-    for word, count in buff: 
-      if count >= self.min_occur_count and word not in self._str2idx:
-        self._str2idx[word] = cur_idx
-        self._idx2str[cur_idx] = word
-        cur_idx += 1
+
+    if mode == self.STACK:
+      for word, count in buff:
+        if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+          self._str2idx_stack[word] = cur_idx
+          self._idx2str_stack[cur_idx] = word
+          cur_idx += 1
+    else:
+      for word, count in buff:
+        if count >= self.min_occur_count and word not in self._str2idx:
+          self._str2idx[word] = cur_idx
+          self._idx2str[cur_idx] = word
+          cur_idx += 1
+
     return
 
-  def add_train_file(self):
+  def add_train_file(self, train_file, mode=0):
     """"""
-    
-    with open(self.train_file) as f:
+
+    with open(train_file) as f:
       buff = []
       for line_num, line in enumerate(f):
         line = line.strip().split()
@@ -147,66 +185,66 @@ class Vocab(Configurable):
           if len(line) == 10:
             if hasattr(self.conll_idx, '__iter__'):
               for idx in self.conll_idx:
-                self.add(line[idx])
+                self.add(line[idx], mode=mode)
             else:
-              self.add(line[self.conll_idx])
+              self.add(line[self.conll_idx], mode=mode)
           else:
             raise ValueError('The training file is misformatted at line %d' % (line_num+1))
-    self.index_vocab()
+    self.index_vocab(mode=mode)
     return
 
   # =============================================================
 
-  def add_stack(self, word, count=1):
-    """"""
-
-    if not self.cased:
-      word = word.lower()
-
-    self._counts_stack[word] += int(count)
-    return
-
-  def index_vocab_stack(self):
-    """"""
-
-    cur_idx = Vocab.START_IDX
-    buff = []
-    for word_and_count in self._counts_stack.most_common():
-      if (not buff) or buff[-1][1] == word_and_count[1]:
-        buff.append(word_and_count)
-      else:
-        buff.sort()
-        for word, count in buff:
-          if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
-            self._str2idx_stack[word] = cur_idx
-            self._idx2str_stack[cur_idx] = word
-            cur_idx += 1
-        buff = [word_and_count]
-    buff.sort()
-    for word, count in buff:
-      if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
-        self._str2idx_stack[word] = cur_idx
-        self._idx2str_stack[cur_idx] = word
-        cur_idx += 1
-    return
-
-  def add_train_file_stack(self):
-    """"""
-
-    with open(self.train_file) as f:
-      buff = []
-      for line_num, line in enumerate(f):
-        line = line.strip().split()
-        if line:
-          if len(line) == 10:
-            if hasattr(self.conll_idx, '__iter__'):
-              for idx in self.conll_idx:
-                self.add_stack(line[idx])
-            else:
-              self.add_stack(line[self.conll_idx])
-          else:
-            raise ValueError('The training file is misformatted at line %d' % (line_num + 1))
-    self.index_vocab_stack()
+  # def add_stack(self, word, count=1):
+  #   """"""
+  #
+  #   if not self.cased:
+  #     word = word.lower()
+  #
+  #   self._counts_stack[word] += int(count)
+  #   return
+  #
+  # def index_vocab_stack(self):
+  #   """"""
+  #
+  #   cur_idx = Vocab.START_IDX
+  #   buff = []
+  #   for word_and_count in self._counts_stack.most_common():
+  #     if (not buff) or buff[-1][1] == word_and_count[1]:
+  #       buff.append(word_and_count)
+  #     else:
+  #       buff.sort()
+  #       for word, count in buff:
+  #         if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+  #           self._str2idx_stack[word] = cur_idx
+  #           self._idx2str_stack[cur_idx] = word
+  #           cur_idx += 1
+  #       buff = [word_and_count]
+  #   buff.sort()
+  #   for word, count in buff:
+  #     if count >= self.min_occur_count_stack and word not in self._str2idx_stack:
+  #       self._str2idx_stack[word] = cur_idx
+  #       self._idx2str_stack[cur_idx] = word
+  #       cur_idx += 1
+  #   return
+  #
+  # def add_train_file_stack(self):
+  #   """"""
+  #
+  #   with open(self.train_file) as f:
+  #     buff = []
+  #     for line_num, line in enumerate(f):
+  #       line = line.strip().split()
+  #       if line:
+  #         if len(line) == 10:
+  #           if hasattr(self.conll_idx, '__iter__'):
+  #             for idx in self.conll_idx:
+  #               self.add_stack(line[idx])
+  #           else:
+  #             self.add_stack(line[self.conll_idx])
+  #         else:
+  #           raise ValueError('The training file is misformatted at line %d' % (line_num + 1))
+  #   self.index_vocab_stack()
 
   # =============================================================
 
@@ -302,12 +340,14 @@ class Vocab(Configurable):
   #=============================================================
   def save_vocab_file(self):
     """"""
+    wc_list = self._counts.most_common()
+    vocab_file = self.vocab_file
+
     if self.stack:
       vocab_file = os.path.join(self.save_dir, 'stack-' + os.path.basename(self.vocab_file))
       wc_list = self._counts_stack.most_common()
-    else:
-      vocab_file = self.vocab_file
-      wc_list = self._counts.most_common()
+    elif self.multi:
+      vocab_file = os.path.join(self.save_dir, 'multi-' + os.path.basename(self.vocab_file))
 
     with open(vocab_file, 'w') as f:
       for word_and_count in wc_list:

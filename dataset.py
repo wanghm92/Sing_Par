@@ -19,19 +19,22 @@ class Dataset(Configurable):
   """"""
   
   #=============================================================
-  def __init__(self, filename, vocabs, builder, *args, **kwargs):
+  def __init__(self, filename, vocabs, builder, multi, *args, **kwargs):
     """"""
     
     super(Dataset, self).__init__(*args, **kwargs)
     self._file_iterator = self.file_iterator(filename)
-    self._train = (filename == self.train_file)
+    self._train = (filename == self.train_file or filename == self.train_file_multi)
     self._metabucket = Metabucket(self._config, n_bkts=self.n_bkts)
     self._data = None
     self.vocabs = vocabs
     self.rebucket()
-    
-    self.inputs = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='inputs')
-    self.targets = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='targets')
+    if not multi:
+      self.inputs = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='inputs')
+      self.targets = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='targets')
+    else:
+      self.inputs = None
+      self.targets = None
     self.builder = builder()
   
   #=============================================================

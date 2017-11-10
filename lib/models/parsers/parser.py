@@ -16,14 +16,14 @@ class Parser(BaseParser):
   """"""
   
   #=============================================================
-  def __call__(self, dataset, moving_params=None):
+  def __call__(self, dataset, moving_params=None, multi=False):
     """"""
     
     vocabs = dataset.vocabs
     inputs = dataset.inputs
     targets = dataset.targets
     
-    reuse = (moving_params is not None)
+    reuse = (moving_params is not None) or multi
     # self.reuse = reuse
     self.tokens_to_keep3D = tf.expand_dims(tf.to_float(tf.greater(inputs[:,:,0], vocabs[0].ROOT)), 2)
     self.sequence_lengths = tf.reshape(tf.reduce_sum(self.tokens_to_keep3D, [1, 2]), [-1,1])
@@ -60,12 +60,11 @@ class Parser(BaseParser):
         with tf.variable_scope('RNN%d'%(i+int(self.n_recur)), reuse=reuse):
           top_recur_stack, _ = self.RNN(top_recur_stack)
       top_mlp_stack = top_recur_stack
-      # top_mlp = top_recur_stack
-    # else:
+
     top_mlp = top_recur
 
     if self.n_mlp > 0:
-      with tf.variable_scope('MLP0', reuse=reuse):
+      with tf.variable_scope('MLP_base0', reuse=reuse):
         dep_mlp, head_dep_mlp, rel_mlp, head_rel_mlp = self.MLP(top_mlp, n_splits=4)
       for i in xrange(1,self.n_mlp):
         with tf.variable_scope('DepMLP%d' % i, reuse=reuse):
@@ -78,7 +77,23 @@ class Parser(BaseParser):
           head_rel_mlp = self.MLP(head_rel_mlp)
     else:
       dep_mlp = head_dep_mlp = rel_mlp = head_rel_mlp = top_mlp
-    
+
+    if self.multi:
+      if self.multi_n_mlp > 0:
+        with tf.variable_scope('MLP_multi0', reuse=reuse):
+          dep_mlp_multi, head_dep_mlp_multi, rel_mlp_multi, head_rel_mlp_multi = self.MLP(top_mlp, n_splits=4)
+        for i in xrange(1,self.multi_n_mlp):
+          with tf.variable_scope('DepMLP_multi%d' % i, reuse=reuse):
+            dep_mlp_multi = self.MLP(dep_mlp_multi)
+          with tf.variable_scope('HeadDepMLP_multi%d' % i, reuse=reuse):
+            head_dep_mlp_multi = self.MLP(head_dep_mlp_multi)
+          with tf.variable_scope('RelMLP_multi%d' % i, reuse=reuse):
+            rel_mlp_multi = self.MLP(rel_mlp_multi)
+          with tf.variable_scope('HeadRelMLP_multi%d' % i, reuse=reuse):
+            head_rel_mlp_multi = self.MLP(head_rel_mlp_multi)
+      else:
+        dep_mlp_multi = head_dep_mlp_multi = rel_mlp_multi = head_rel_mlp_multi = top_mlp
+
     if self.stack:
       if self.stack_n_mlp > 0:
         with tf.variable_scope('MLP_stack0', reuse=reuse):
@@ -100,18 +115,31 @@ class Parser(BaseParser):
       rel_mlp += rel_mlp_stack
       head_rel_mlp += head_rel_mlp_stack
     
-    with tf.variable_scope('Parses', reuse=reuse):
+    with tf.variable_scope('Parses_base', reuse=reuse):
       parse_logits = self.bilinear_classifier(dep_mlp, head_dep_mlp, add_bias1=True)
       parse_output = self.output(parse_logits, targets[:,:,1])
       if moving_params is None:
         predictions = targets[:,:,1]
       else:
         predictions = parse_output['predictions']
-    with tf.variable_scope('Rels', reuse=reuse):
+    with tf.variable_scope('Rels_base', reuse=reuse):
       rel_logits, rel_logits_cond = self.conditional_bilinear_classifier(rel_mlp, head_rel_mlp, len(vocabs[2]), predictions)
       rel_output = self.output(rel_logits, targets[:,:,2])
       rel_output['probabilities'] = self.conditional_probabilities(rel_logits_cond)
-    
+
+    if self.multi:
+      with tf.variable_scope('Parses_multi', reuse=reuse):
+        parse_logits_multi = self.bilinear_classifier(dep_mlp_multi, head_dep_mlp_multi, add_bias1=True)
+        parse_output_multi = self.output(parse_logits_multi, targets[:,:,1])
+        if moving_params is None:
+          predictions = targets[:,:,1]
+        else:
+          predictions = parse_output_multi['predictions']
+      with tf.variable_scope('Rels_multi', reuse=reuse):
+        rel_logits_multi, rel_logits_cond_multi = self.conditional_bilinear_classifier(rel_mlp_multi, head_rel_mlp_multi, len(vocabs[2]), predictions)
+        rel_output_multi = self.output(rel_logits_multi, targets[:,:,2])
+        rel_output_multi['probabilities'] = self.conditional_probabilities(rel_logits_cond_multi)
+
     output = {}
     output['probabilities'] = tf.tuple([parse_output['probabilities'],
                                         rel_output['probabilities']])
@@ -137,6 +165,25 @@ class Parser(BaseParser):
     output['head_rel'] = head_rel_mlp
     output['parse_logits'] = parse_logits
     output['rel_logits'] = rel_logits
+
+    if self.multi:
+      output['probabilities_multi'] = tf.tuple([parse_output_multi['probabilities'],
+                                          rel_output_multi['probabilities']])
+      output['predictions_multi'] = tf.pack([parse_output_multi['predictions'],
+                                       rel_output_multi['predictions']])
+      output['correct_multi'] = parse_output_multi['correct'] * rel_output_multi['correct']
+      output['tokens_multi'] = parse_output_multi['tokens']
+      output['n_correct_multi'] = tf.reduce_sum(output['correct_multi'])
+      output['n_tokens_multi'] = self.n_tokens
+      output['accuracy_multi'] = output['n_correct_multi'] / output['n_tokens_multi']
+      output['loss_multi'] = parse_output_multi['loss'] + rel_output_multi['loss']
+      output['dep_multi'] = dep_mlp_multi
+      output['head_dep_multi'] = head_dep_mlp_multi
+      output['rel_multi'] = rel_mlp_multi
+      output['head_rel_multi'] = head_rel_mlp_multi
+      output['parse_logits_multi'] = parse_logits_multi
+      output['rel_logits_multi'] = rel_logits_cond_multi
+
     return output
   
   #=============================================================
