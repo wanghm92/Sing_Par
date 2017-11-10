@@ -486,20 +486,26 @@ class Network(Configurable):
       pretrain_op = self.model.ZERO
 
     if self.multi:
+
       train_output_multi = self._model(self._trainset_multi, multi=True)
       optimizer_multi = optimizers.RadamOptimizer(self._config, global_step=self.global_step)
+
       update_vars_multi = filter(lambda x: u'_base' not in x.name, tf.trainable_variables())
       train_op_multi = optimizer_multi.minimize(train_output_multi['loss_multi']+l2_loss+regularization_loss, var_list=update_vars_multi)
 
-    update_vars = filter(lambda x: u'_multi' not in x.name, tf.trainable_variables())
-    train_op = optimizer.minimize(train_output['loss']+l2_loss+regularization_loss, var_list=update_vars)
+      update_vars = filter(lambda x: u'_multi' not in x.name, tf.trainable_variables())
 
-    L.info('train_op_multi is updating the following variables different from train_op:')
-    for v in [x for x in update_vars_multi if not x in update_vars]:
-      print(v.name)
-    L.info('train_op is updating the following variables different from train_op_multi:')
-    for v in [x for x in update_vars if not x in update_vars_multi]:
-      print(v.name)
+      L.info('train_op_multi is updating the following variables different from train_op:')
+      for v in [x for x in update_vars_multi if not x in update_vars]:
+        print(v.name)
+      L.info('train_op is updating the following variables different from train_op_multi:')
+      for v in [x for x in update_vars if not x in update_vars_multi]:
+        print(v.name)
+
+    else:
+      update_vars = tf.trainable_variables()
+
+    train_op = optimizer.minimize(train_output['loss']+l2_loss+regularization_loss, var_list=update_vars)
 
     # These have to happen after optimizer.minimize is called
     valid_output = self._model(self._validset, moving_params=optimizer)
