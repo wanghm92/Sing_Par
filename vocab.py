@@ -80,9 +80,9 @@ class Vocab(Configurable):
         self.add_train_file(self.train_file_multi)
         self.save_vocab_file()
     else:
-      self.add_train_file(self.train_file)
       if self.multi:
-        self.add_train_file(self.train_file_multi)
+        self.add_train_file(self.train_file_multi, mode=self.MULTI)
+      self.add_train_file(self.train_file)
         # self.save_vocab_file()
       self.save_vocab_file()
     if load_embed_file:
@@ -190,7 +190,8 @@ class Vocab(Configurable):
               self.add(line[self.conll_idx], mode=mode)
           else:
             raise ValueError('The training file is misformatted at line %d' % (line_num+1))
-    self.index_vocab(mode=mode)
+    if not mode == self.MULTI:
+      self.index_vocab(mode=mode)
     return
 
   # =============================================================

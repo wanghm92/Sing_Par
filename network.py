@@ -390,12 +390,14 @@ class Network(Configurable):
     """"""
     
     if validate:
+      L.info('decoding on dev')
       filename = self.valid_file +'-epoch%d'%test_epoch
       minibatches = self.valid_minibatches
       dataset = self._validset
       op = self.ops['test_op'][0]
       score_file = 'scores_validate.txt'
     else:
+      L.info('decoding on test')
       filename = self.test_file +'-epoch%d'%test_epoch
       minibatches = self.test_minibatches
       dataset = self._testset
@@ -408,6 +410,8 @@ class Network(Configurable):
     for (feed_dict, sents) in minibatches():
       mb_inputs = feed_dict[dataset.inputs]
       mb_targets = feed_dict[dataset.targets]
+      # print('mb_targets')
+      # print([[w[-1] for w in s if w[-1]!=0] for s in mb_targets])
       mb_probs = sess.run(op, feed_dict=feed_dict)
       all_predictions[-1].extend(self.model.validate(mb_inputs, mb_targets, mb_probs))
       all_sents[-1].extend(sents)
