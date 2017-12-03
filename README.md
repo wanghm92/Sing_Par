@@ -44,7 +44,9 @@ stack_mlp_size = #MLP_layer_dimension
 ```
 #### Train:
 
-`python network.py --config config/#your_config_file.cfg --load --load_epoch #saved_basemodel_epoch_number`
+```
+python network.py --config config/#your_config_file.cfg --load --load_epoch #saved_basemodel_epoch_number
+```
 
 #### Test:
 TO BE DONE
@@ -68,7 +70,9 @@ stack = False
 
 #### Train
 
-`python network.py --config config/#your_config_file.cfg`
+```
+python network.py --config config/#your_config_file.cfg
+```
 
 #### Test:
 TO BE DONE
