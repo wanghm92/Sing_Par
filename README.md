@@ -1,5 +1,13 @@
 # Singlish Parser
-This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 long paper [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P17-1159). The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
+
+## Intro
+This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 paper [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P17-1159). 
+
+Bibtex : [http://aclweb.org/anthology/P/P17/P17-1159.bib](http://aclweb.org/anthology/P/P17/P17-1159.bib)
+
+The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
+
+## Files and Models
 
 The Singlish dependency treebank is released here as a new dependency parsing dataset, annotated with [Universal Dependencies](http://universaldependencies.org), for an important creole of English, Colloquial Singaporean English (Singlish), contained in the folder Singlish/treebank. 
 
@@ -9,9 +17,16 @@ The model for the Singlish POS tagger with neural stacking is in the folder Sing
 
 Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
 
-Bibtex : [http://aclweb.org/anthology/P/P17/P17-1159.bib](http://aclweb.org/anthology/P/P17/P17-1159.bib)
+## How to Train and Test
 
-This repo is under MIT License:
+### Base Model 
+The commands for default mode of training and testing are illustrated below in the "Original PTB/UD Parser" section
+
+### Stacking Model
+TO BE DONE
+### Multi-Task Model
+TO BE DONE
+## This repo is under MIT License:
 
 MIT License
 
@@ -35,9 +50,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 
-Original Readme:
-
-# Parser
+# Original PTB/UD Parser
 
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
