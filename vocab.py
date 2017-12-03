@@ -72,6 +72,7 @@ class Vocab(Configurable):
     self.pretrained_embeddings_stack = None # self.pretrained_embeddings_extra = None
 
     if os.path.isfile(self.vocab_file):
+      L.info('Loading vocab file %s from save_dir'%self.vocab_file)
       self.load_vocab_file()
       if self.stack:
         self.add_train_file(self.train_file, mode=self.STACK)
@@ -80,6 +81,7 @@ class Vocab(Configurable):
         self.add_train_file(self.train_file_multi)
         self.save_vocab_file()
     else:
+      L.info('Constructing vocab file ...')
       if self.multi:
         self.add_train_file(self.train_file_multi, mode=self.MULTI)
       self.add_train_file(self.train_file)
@@ -115,7 +117,7 @@ class Vocab(Configurable):
     return
 
   #=============================================================
-  def add(self, word, mode=0, count=1):
+  def add(self, word, count=1, mode=0):
     """"""
     
     if not self.cased:
@@ -333,7 +335,7 @@ class Vocab(Configurable):
           if len(line) == 1:
             line.insert(0, '')
           if len(line) == 2:
-            self.add(*line)
+            self.add(line[0], count=line[1])
           else:
             raise ValueError('The vocab file is misformatted at line %d' % (line_num+1))
     self.index_vocab()
