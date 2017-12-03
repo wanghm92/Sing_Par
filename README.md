@@ -23,9 +23,56 @@ Tip: words.txt, tags.txt, and rels.txt should be saved when training the base En
 The commands for default mode of training and testing are illustrated below in the "Original PTB/UD Parser" section
 
 ### Stacking Model
+
+```
+[OS]
+embed_file_stack = #pretrained_embeddings_for_input_at_stacked_layers
+...
+[Dataset]
+stack = True
+min_occur_count_stack = #min_count_when_constructing_vocabs_from_train_file
+...
+[Layers]
+stack_n_recur = #recurrent_layers_to_be_stacked
+stack_n_mlp = #MLP_layers_on_top_of_stacked_recurrent_layers
+...
+[Sizes]
+stack_embed_size = #embedding_dimension
+stack_recur_size = #recurrent_layer_hidden_state_dimension
+stack_mlp_size = #MLP_layer_dimension
+...
+```
+#### Train:
+
+`python network.py --config config/#your_config_file.cfg --load --load_epoch #saved_basemodel_epoch_number`
+
+#### Test:
 TO BE DONE
-### Multi-Task Model
+
+### Multi-View Model
+```
+[OS]
+word_file_multi = %(save_dir)s/words_multi.txt
+tag_file_multi = %(save_dir)s/tags_multi.txt
+rel_file_multi = %(save_dir)s/rels_multi.txt
+data_dir_multi = UD
+train_file_multi = %(data_dir_multi)s/en-ud-train.conll
+valid_file_multi = %(data_dir_multi)s/en-ud-dev.conll
+test_file_multi = %(data_dir_multi)s/en-ud-test.conll
+...
+[Dataset]
+multi = True
+stack = False
+...
+```
+
+#### Train
+
+`python network.py --config config/#your_config_file.cfg`
+
+#### Test:
 TO BE DONE
+
 ## This repo is under MIT License:
 
 MIT License
