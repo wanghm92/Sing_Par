@@ -1,17 +1,44 @@
 # Singlish Parser
 
 ## Intro
-This repository contains the modified code used to train the Singlish dependency parser, proposed in the ACL2017 paper [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P17-1159). 
+This repository contains the code used to train the Singlish dependency parser, proposed in the following two papers:
+1. ACL2017: [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P17-1159). 
+2. TALLIP19: [From Genesis to Creole language: Transfer Learning for
+Singlish Universal Dependencies Parsing and POS Tagging](https://frcchang.github.io/pub/tallip19.wang.pdf)
 
-Bibtex : [http://aclweb.org/anthology/P/P17/P17-1159.bib](http://aclweb.org/anthology/P/P17/P17-1159.bib)
+### Two versions of the Singlish treebank are available:
+1. STB-ACL: under ACL17_dataset/
+2. STB-EXT: under TALLIP19_dataset/
 
+Briefly, the STB-EXT dataset offers a 3-times larger training set, while keeping the same dev and test sets from STB-ACL.
+We provide treebanks with both gold-standard as well as automatically generated POS tags. 
+
+In STB-ACL, we used the neural stacking based POS tagger. In STB-EXT, we included another multi-view based POS tagger.
+
+### Citations
+If you use the STB-ACL dataset, please kindly cite this paper:
+
+[http://aclweb.org/anthology/P/P17/P17-1159.bib](http://aclweb.org/anthology/P/P17/P17-1159.bib)
+
+If you use the STB-EXT dataset, please kindly cite this paper:
+
+[https://scholar.harvard.edu/jieyang/publications/export/bibtex/630149](https://scholar.harvard.edu/jieyang/publications/export/bibtex/630149)
+
+While we kept the dev/test sets for fair comparison with the ACL paper, please feel free to have your own new splits with the whole extended dataset.
+
+### Code
+The code is available but lacking instructions, which will be updated soon.
+
+TODO: ReadMe for TALLIP19
+
+The following is the ReadMe for ACL2017:
 The Singlish dependency parser is built on top of an English base parser trained using the network described in [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734), whose code is available at https://github.com/tdozat/Parser and its original Readme follows this Readme.
 
 ## Files and Models
 
 The Singlish dependency treebank is released here as a new dependency parsing dataset, annotated with [Universal Dependencies](http://universaldependencies.org), for an important creole of English, Colloquial Singaporean English (Singlish), contained in the folder Singlish/treebank. 
 
-The model for the Singlish parser with neural stacking, as presented in the paper, is in the folder Singlish/model. The corresponding config file is config/Singlish.cfg and the Singlish embeddings used is Singlish/embedding/Singlish.ice.vec.txt
+The model for the Singlish parser with neural stacking, as presented in the ACL paper, is in the folder Singlish/model. The corresponding config file is config/Singlish.cfg and the Singlish embeddings used is Singlish/embedding/Singlish.ice.vec.txt
 
 The model for the Singlish POS tagger with neural stacking is in the folder Singlish/pos_tagger. The codes to train such a POS tagger is at [NNHetSeq Modified by Jie](https://github.com/jiesutd/NNHetSeq.git).
 
