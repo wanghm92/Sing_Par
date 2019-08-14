@@ -35,14 +35,28 @@ class BaseParser(NN):
       for l, (token, gold, parse, rel) in enumerate(zip(tokens, golds, parse_preds, rel_preds)):
         if token[0] > 1:
           word = vocabs[0][token[0]]
-          glove = vocabs[0].get_embed(token[1])
-          tag = vocabs[1][token[2]]
+          if self.load_emb:
+            if self.stack:
+              glove = vocabs[0].get_embed(token[2])
+              ice = vocabs[0].get_embed(token[3], is_stack=True)
+              tag = vocabs[1][token[4]]
+            else:
+              glove = vocabs[0].get_embed(token[1])
+              tag = vocabs[1][token[2]]
+          else:
+            tag = vocabs[1][token[1]]
           gold_tag = gold[0]
           pred_parse = parse
           pred_rel = vocabs[2][rel]
           gold_parse = gold[1]
           gold_rel = vocabs[2][gold[2]]
-          fileobject.write('%d\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, word, glove, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
+          if self.load_emb:
+            if self.stack:
+              fileobject.write('%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, token[0], token[1], word, glove, ice, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
+            else:
+              fileobject.write('%d\t%s\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, word, glove, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
+          else:
+            fileobject.write('%d\t%s\t%s\t%s\t_\t%d\t%s\t%d\t%s\n' % (l, word, tag, gold_tag, pred_parse, pred_rel, gold_parse, gold_rel))
       fileobject.write('\n')
     return
   
@@ -57,14 +71,34 @@ class BaseParser(NN):
       length = np.sum(tokens_to_keep)
       parse_preds, rel_preds = self.prob_argmax(parse_probs, rel_probs, tokens_to_keep)
       
-      sent = -np.ones( (length, 9), dtype=int)
+      if self.load_emb:
+        if self.stack:
+          sent = -np.ones( (length, 11), dtype=int)
+        else:
+          sent = -np.ones( (length, 9), dtype=int)
+      else:
+        sent = -np.ones( (length, 8), dtype=int)
       tokens = np.arange(1, length+1)
       sent[:,0] = tokens
-      sent[:,1:4] = inputs[tokens]
-      sent[:,4] = targets[tokens,0]
-      sent[:,5] = parse_preds[tokens]
-      sent[:,6] = rel_preds[tokens]
-      sent[:,7:] = targets[tokens, 1:]
+      if self.load_emb:
+        if self.stack:
+          sent[:,1:6] = inputs[tokens]
+          sent[:,6] = targets[tokens,0]
+          sent[:,7] = parse_preds[tokens]
+          sent[:,8] = rel_preds[tokens]
+          sent[:,9:] = targets[tokens, 1:]
+        else:
+          sent[:,1:4] = inputs[tokens]
+          sent[:,4] = targets[tokens,0]
+          sent[:,5] = parse_preds[tokens]
+          sent[:,6] = rel_preds[tokens]
+          sent[:,7:] = targets[tokens, 1:]
+      else:
+        sent[:,1:3] = inputs[tokens]
+        sent[:,3] = targets[tokens,0]
+        sent[:,4] = parse_preds[tokens]
+        sent[:,5] = rel_preds[tokens]
+        sent[:,6:] = targets[tokens, 1:]
       sents.append(sent)
     return sents
   
@@ -85,12 +119,26 @@ class BaseParser(NN):
             if line[7] == line[9]:
               correct['LAS'][-1] = 1
     correct = {k:np.array(v) for k, v in correct.iteritems()}
-    return 'UAS: %.2f    LAS: %.2f\n' % (np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100), correct
-  
+
+    # return 'UAS: %.2f    LAS: %.2f\n' % (np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100), correct
+    return np.mean(correct['UAS']) * 100, np.mean(correct['LAS']) * 100, correct
+
   #=============================================================
   @property
   def input_idxs(self):
-    return (0, 1, 2)
+    if self.load_emb:
+      if self.stack: # self.extra_emb:
+        return (0, 1, 2, 3, 4)
+      else:
+        return (0, 1, 2)
+    else:
+      return (0, 1)
   @property
   def target_idxs(self):
-    return (3, 4, 5)
+    if self.load_emb:
+      if self.stack: # self.extra_emb:
+        return (5, 6, 7)
+      else:
+        return (3, 4, 5)
+    else:
+      return (2, 3, 4)

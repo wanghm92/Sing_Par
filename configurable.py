@@ -79,10 +79,33 @@ class Configurable(object):
   def rel_file(self):
     return self._config.get('OS', 'rel_file')
   argparser.add_argument('--rel_file')
+
+  @property
+  def word_file_multi(self):
+    return self._config.get('OS', 'word_file_multi')
+  argparser.add_argument('--word_file_multi')
+  @property
+  def tag_file_multi(self):
+    return self._config.get('OS', 'tag_file_multi')
+  argparser.add_argument('--tag_file_multi')
+  @property
+  def rel_file_multi(self):
+    return self._config.get('OS', 'rel_file_multi')
+  argparser.add_argument('--rel_file_multi')
+
   @property
   def embed_file(self):
     return self._config.get('OS', 'embed_file')
   argparser.add_argument('--embed_file')
+  # @property
+  # def embed_file_extra(self):
+  #   return self._config.get('OS', 'embed_file_extra')
+  # argparser.add_argument('--embed_file_extra')
+  @property
+  def embed_file_stack(self):
+    return self._config.get('OS', 'embed_file_stack')
+  argparser.add_argument('--embed_file_stack')
+
   @property
   def train_file(self):
     return self._config.get('OS', 'train_file')
@@ -95,6 +118,20 @@ class Configurable(object):
   def test_file(self):
     return self._config.get('OS', 'test_file')
   argparser.add_argument('--test_file')
+
+  @property
+  def train_file_multi(self):
+    return self._config.get('OS', 'train_file_multi')
+  argparser.add_argument('--train_file_multi')
+  @property
+  def valid_file_multi(self):
+    return self._config.get('OS', 'valid_file_multi')
+  argparser.add_argument('--valid_file_multi')
+  @property
+  def test_file_multi(self):
+    return self._config.get('OS', 'test_file_multi')
+  argparser.add_argument('--test_file_multi')
+
   @property
   def save_dir(self):
     return self._config.get('OS', 'save_dir')
@@ -103,6 +140,28 @@ class Configurable(object):
   #=============================================================
   # [Dataset]
   @property
+  def load_emb(self):
+    return self._config.getboolean('Dataset', 'load_emb')
+  argparser.add_argument('--load_emb')
+  # @property
+  # def extra_emb(self):
+  #   return self._config.getboolean('Dataset', 'extra_emb')
+  # argparser.add_argument('--extra_emb')
+  @property
+  def use_unk(self):
+    return self._config.getboolean('Dataset', 'use_unk')
+  argparser.add_argument('--use_unk')
+  @property
+  def stack(self):
+    return self._config.getboolean('Dataset', 'stack')
+  argparser.add_argument('--stack')
+
+  @property
+  def multi(self):
+    return self._config.getboolean('Dataset', 'multi')
+  argparser.add_argument('--multi')
+
+  @property
   def cased(self):
     return self._config.getboolean('Dataset', 'cased')
   argparser.add_argument('--cased')
@@ -110,6 +169,10 @@ class Configurable(object):
   def min_occur_count(self):
     return self._config.getint('Dataset', 'min_occur_count')
   argparser.add_argument('--min_occur_count')
+  @property
+  def min_occur_count_stack(self):
+    return self._config.getint('Dataset', 'min_occur_count_stack')
+  argparser.add_argument('--min_occur_count_stack')
   @property
   def minimize_pads(self):
     return self._config.getboolean('Dataset', 'minimize_pads')
@@ -134,9 +197,21 @@ class Configurable(object):
     return self._config.getint('Layers', 'n_recur')
   argparser.add_argument('--n_recur')
   @property
+  def stack_n_recur(self):
+    return self._config.getint('Layers', 'stack_n_recur')
+  argparser.add_argument('--stack_n_recur')
+  @property
   def n_mlp(self):
     return self._config.getint('Layers', 'n_mlp')
   argparser.add_argument('--n_mlp')
+  @property
+  def stack_n_mlp(self):
+    return self._config.getint('Layers', 'stack_n_mlp')
+  argparser.add_argument('--stack_n_mlp')
+  @property
+  def multi_n_mlp(self):
+    return self._config.getint('Layers', 'multi_n_mlp')
+  argparser.add_argument('--multi_n_mlp')
   @property
   def recur_cell(self):
     from lib import rnn_cells
@@ -161,6 +236,10 @@ class Configurable(object):
   def embed_size(self):
     return self._config.getint('Sizes', 'embed_size')
   argparser.add_argument('--embed_size')
+  # @property
+  # def embed_size_extra(self):
+  #   return self._config.getint('Sizes', 'embed_size_extra')
+  # argparser.add_argument('--embed_size_extra')
   @property
   def recur_size(self):
     return self._config.getint('Sizes', 'recur_size')
@@ -169,6 +248,18 @@ class Configurable(object):
   def mlp_size(self):
     return self._config.getint('Sizes', 'mlp_size')
   argparser.add_argument('--mlp_size')
+  @property
+  def stack_embed_size(self):
+    return self._config.getint('Sizes', 'stack_embed_size')
+  argparser.add_argument('--stack_embed_size')
+  @property
+  def stack_recur_size(self):
+    return self._config.getint('Sizes', 'stack_recur_size')
+  argparser.add_argument('--stack_recur_size')
+  @property
+  def stack_mlp_size(self):
+    return self._config.getint('Sizes', 'stack_mlp_size')
+  argparser.add_argument('--stack_mlp_size')
   
   #=============================================================
   # [Functions]
@@ -299,6 +390,10 @@ class Configurable(object):
   def test_batch_size(self):
     return self._config.getint('Training', 'test_batch_size')
   argparser.add_argument('--test_batch_size')
+  @property
+  def multi_train_ratio(self):
+    return self._config.getint('Training', 'multi_train_ratio')
+  argparser.add_argument('--multi_train_ratio')
   @property
   def validate_every(self):
     return self._config.getint('Training', 'validate_every')

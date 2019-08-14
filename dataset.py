@@ -19,19 +19,22 @@ class Dataset(Configurable):
   """"""
   
   #=============================================================
-  def __init__(self, filename, vocabs, builder, *args, **kwargs):
+  def __init__(self, filename, vocabs, builder, multi, *args, **kwargs):
     """"""
     
     super(Dataset, self).__init__(*args, **kwargs)
     self._file_iterator = self.file_iterator(filename)
-    self._train = (filename == self.train_file)
+    self._train = (filename == self.train_file or filename == self.train_file_multi)
     self._metabucket = Metabucket(self._config, n_bkts=self.n_bkts)
     self._data = None
     self.vocabs = vocabs
     self.rebucket()
-    
-    self.inputs = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='inputs')
-    self.targets = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='targets')
+    if not multi:
+      self.inputs = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='inputs')
+      self.targets = tf.placeholder(dtype=tf.int32, shape=(None,None,None), name='targets')
+    else:
+      self.inputs = None
+      self.targets = None
     self.builder = builder()
   
   #=============================================================
@@ -88,7 +91,15 @@ class Dataset(Configurable):
       for j, token in enumerate(sent):
         word, tag1, tag2, head, rel = token[words.conll_idx], token[tags.conll_idx[0]], token[tags.conll_idx[1]], token[6], token[rels.conll_idx]
         buff[i][j] = (word,) + words[word] + tags[tag1] + tags[tag2] + (int(head),) + rels[rel]
-      sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
+      if self.load_emb:
+        # if self.extra_emb:
+          # sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
+        if self.stack:
+          sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT)) # str2idx, str2idx_stack, str2emb(bottom pret_emb), str2emb_stack(top pret_emb), str2idx(tag1), str2idx(tag2), int head, str2idx(rel)
+        else:
+          sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
+      else:
+        sent.insert(0, ('root', Vocab.ROOT, Vocab.ROOT, Vocab.ROOT, 0, Vocab.ROOT))
     return buff
   
   #=============================================================
