@@ -1,5 +1,6 @@
 # Singlish Parser
 
+
 ## Intro
 This repository contains the code used to train the Singlish dependency parser, proposed in the following two papers:
 1. ACL2017: [Universal Dependencies Parsing for Colloquial Singaporean English](http://aclweb.org/anthology/P17-1159). 
@@ -43,6 +44,7 @@ The model for the Singlish parser with neural stacking, as presented in the ACL 
 The model for the Singlish POS tagger with neural stacking is in the folder Singlish/pos_tagger. The codes to train such a POS tagger is at [NNHetSeq Modified by Jie](https://github.com/jiesutd/NNHetSeq.git).
 
 Tip: words.txt, tags.txt, and rels.txt should be saved when training the base English parser, and put in the saves directory when loading the base model.
+
 
 ## How to Train and Test
 
@@ -129,6 +131,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 
 # Original PTB/UD Parser
+
+Original Readme:
+
+# Parser
+
 
 This repository contains the code used to train the parsers described in the paper [Deep Biaffine Attention for Neural Dependency Parsing](https://arxiv.org/abs/1611.01734). Here we describe how the source code is structured and how to train/validate/test models.
 
